@@ -1,4 +1,6 @@
 from __future__ import division
+from collections import defaultdict
+from operator import itemgetter
 import pymel.core as pm
 import random
 
@@ -14,81 +16,101 @@ def select_object(object_name):
 def find_distance(self, *args):
     return pow(sum(pow(i, 2) for i in args), 0.5)
 
-def BOUNCE(RevealClass, start_frame, end_frame, position, distance_bounce=0, extra_keyframes=None):
+def BOUNCE(RevealClass, start_frame, end_frame, start_location, start_rotation, start_scale, absolute_location=True, absolute_rotation=True, absolute_scale=True, distance_bounce=0, extra_keyframes=None):
     
     object_name = RevealClass.object_name
-    distance_main, start_rotation, start_scale = position
+    
+    if start_location is None:
+        start_location = object_name.getTranslation()
+    elif not absolute_location:
+        start_location = tuple(i - j for i, j in zip(RevealClass.end_location, start_location))
     
     if start_rotation is None:
         start_rotation = object_name.getRotation()
-    if start_scale is None:
-        start_scale = object_name.getScale()
-    
+    elif not absolute_rotation:
+        start_rotation = tuple(i - j for i, j in zip(RevealClass.end_rotation, start_rotation))
     rotation_total = tuple(i - j for i, j in zip(RevealClass.end_rotation, start_rotation))
     
-    distance_total = find_distance(*distance_main)
-    distance_ratio = distance_total / (distance_total + distance_bounce)
+    if start_scale is None:
+        start_scale = object_name.getScale()
+    elif not absolute_scale:
+        start_scale = tuple(i * j for i, j in zip(start_scale, RevealClass.end_scale))
     
-    #Use the ratio to find the frame
-    frame_total = end_frame - start_frame
-    frame_bounce = start_frame + frame_total * distance_ratio
+    distance_total = find_distance(*(i - j for i, j in zip(RevealClass.end_location, start_location)))
+    if distance_bounce:
+        distance_ratio = distance_total / (distance_total + distance_bounce)
+        
+        frame_total = end_frame - start_frame
+        
+        #Calculate the bounce ratio with a weighting of 2:1 (distance of 1 and bounce of 1 will result in 0.666:0.333)
+        bounce_ratio = distance_ratio / (distance_ratio + 1) * 2
+        frame_bounce = start_frame + frame_total * bounce_ratio
+        
+        #Calculate the bounce location
+        bounce_ratio = (distance_bounce / distance_total)
+        end_bounce = tuple(i + (i - j) * bounce_ratio for i, j in zip(RevealClass.end_location, start_location))
+        
+        RevealClass.set_position(end_bounce, None, RevealClass.end_scale, frame_bounce)
     
-    #Calculate the start location
-    start_location = list(RevealClass.end_location)
-    start_location[0] += distance_main[0]
-    start_location[1] += distance_main[1]
-    start_location[2] += distance_main[2]
-    
-    #Calculate the bounce location
-    end_bounce = list(RevealClass.end_location)
-    end_bounce[0] -= distance_main[0] * (distance_bounce / distance_total)
-    end_bounce[1] -= distance_main[1] * (distance_bounce / distance_total)
-    end_bounce[2] -= distance_main[2] * (distance_bounce / distance_total)
-    
-    #Set the end location
+    #Set the keyframes
     RevealClass.set_position(start_location, start_rotation, start_scale, start_frame)
-    RevealClass.set_position(end_bounce, RevealClass.end_rotation, RevealClass.end_scale, frame_bounce)
     RevealClass.set_position(RevealClass.end_location, RevealClass.end_rotation, RevealClass.end_scale, end_frame)
     
     #Set extra keyframes relative to the current position
-    if extra_keyframes is not None:
+    if extra_keyframes:
         for frame, new_position in extra_keyframes.iteritems():
             current_frame = start_frame + frame
-            location, rotation, scale = new_position
+            location, rotation, scale, absolute_location, absolute_rotation, absolute_scale = new_position
             
             new_location = None
             new_rotation = None
             new_scale = None
             
-            if any(location):
-                location_at_frame = list(pm.getAttr(object_name + '.translate', time=current_frame))
-                new_location = tuple(i + j for i, j in zip(location_at_frame, location))
-            if any(rotation):
-                rotation_at_frame = list(pm.getAttr(object_name + '.rotate', time=current_frame))
-                new_rotation = tuple(i + j for i, j in zip(rotation_at_frame, location))
-            if any(scale):
-                scale_at_frame = list(pm.getAttr(object_name + '.scale', time=current_frame))
-                new_scale = tuple(i + j for i, j in zip(scale_at_frame, location))
+            if location is not None:
+                if not absolute_location:
+                    new_location = location
+                elif absolute_location == 1:
+                    location_at_frame = list(pm.getAttr(object_name + '.translate', time=current_frame))
+                    new_location = tuple(i + j for i, j in zip(location_at_frame, location))
+                else:
+                    new_location = tuple(i + j for i, j in zip(RevealClass.end_location, location))
+            if rotation is not None:
+                if not absolute_rotation:
+                    new_rotation = rotation
+                elif absolute_rotation == 1:
+                    rotation_at_frame = list(pm.getAttr(object_name + '.rotate', time=current_frame))
+                    new_rotation = tuple(i + j for i, j in zip(rotation_at_frame, rotation))
+                else:
+                    new_rotation = tuple(i + j for i, j in zip(RevealClass.end_rotation, rotation))
+            if scale is not None:
+                if not absolute_scale:
+                    new_scale = scale
+                elif absolute_scale == 1:
+                    scale_at_frame = list(pm.getAttr(object_name + '.scale', time=current_frame))
+                    new_scale = tuple(i + j for i, j in zip(scale_at_frame, scale))
+                else:
+                    new_scale = tuple(i + j for i, j in zip(RevealClass.end_scale, scale))
             
             RevealClass.set_position(new_location, new_rotation, new_scale, current_frame)
             
 
     #Adjust tangents at end of animation
-    key_values = list(distance_main) + list(rotation_total)
-    key_names = ['translateX', 'translateY', 'translateZ', 'rotateX', 'rotateY', 'rotateZ']
-    
-    for i, value in enumerate(key_values):
-        if value:
-            attribute = '{}.{}'.format(object_name, key_names[i])
-            if value > 0:
-                angle_amount = 90
-            else:
-                angle_amount = -90
-    
-            pm.keyTangent(attribute, weightedTangents=True, edit=True)
-            in_weight = pm.keyTangent(attribute, time=end_frame, inWeight=True, query=True)[0]
-            out_weight = pm.keyTangent(attribute, time=end_frame, outWeight=True, query=True)[0]
-            pm.keyTangent(attribute, edit=True, time=end_frame, inAngle=angle_amount, inWeight=in_weight, outAngle=angle_amount, outWeight=out_weight)
+    if distance_bounce and False:
+        key_values = list(start_location) + list(rotation_total)
+        key_names = ['translateX', 'translateY', 'translateZ', 'rotateX', 'rotateY', 'rotateZ']
+        
+        for i, value in enumerate(key_values):
+            if value:
+                attribute = '{}.{}'.format(object_name, key_names[i])
+                if value > 0:
+                    angle_amount = 90
+                else:
+                    angle_amount = -90
+        
+                pm.keyTangent(attribute, weightedTangents=True, edit=True)
+                in_weight = pm.keyTangent(attribute, time=end_frame, inWeight=True, query=True)[0]
+                out_weight = pm.keyTangent(attribute, time=end_frame, outWeight=True, query=True)[0]
+                pm.keyTangent(attribute, edit=True, time=end_frame, inAngle=angle_amount, inWeight=in_weight, outAngle=angle_amount, outWeight=out_weight)
     
     
 
@@ -114,7 +136,7 @@ class RevealAnim(object):
         else:
             self.end_rotation = self.object_name.getRotation()
         if end_scale is not None:
-            self.end_scale = end_rotation
+            self.end_scale = end_scale
         else:
             self.end_scale = self.object_name.getScale()
         
@@ -143,19 +165,56 @@ class RevealAnim(object):
         self.movement_type[0](*movement_args)
 
 
-start_frame = 0
-end_frame = 10
-frame_gap = 2
+def create_animation(start, end, step, random_offset, object_list, movement, extra_frames):
+    
+    #If a list in input where each new item is a different step
+    if isinstance(object_list, (list, tuple)):
+        for i, object_names in enumerate(object_list):
+            for object_name in object_names:
+                reveal = RevealAnim(object_name, movement)
+                offset = step * i + random.uniform(-random_offset, random_offset)
+                reveal.set(start + offset, end + offset)
+                
+    #If a dictionary containing the distance from a point is input
+    elif isinstance(object_list, dict):
+        
+        ########################## FIX THIS BIT!!!!!!!!!!!!!!!!!!!!!!!!!
+        
+        
+        #Average the distance to fit the step size (may not work)
+        distance_values = sorted(object_list.keys())
+        distance_average = defaultdict(int)
+        for i in range(1, len(distance_values)):
+            distance_average[distance_values[i] - distance_values[i-1]] += 1
+        #distance_min = max(distance_average.iteritems(), key=itemgetter(1))[0]
+        
+        values_above_1 = []
+        
+        for k, v in distance_average.iteritems():
+            if v > 1:
+                values_above_1.append(k)
+        try:
+            distance_min = min(values_above_1)
+        except ValueError:
+            distance_min = min(distance_average.keys())
+        distance_min = max(step, distance_min)
+        distance_min = 10
+        
+        #################################
+        
+        for distance, object_names in object_list.iteritems():
+            for object_name in object_names:
+                reveal = RevealAnim(object_name, movement)
+                offset = distance  * step + random.uniform(-random_offset, random_offset)
+                reveal.set(start + offset, end + offset)
+                
+                
 
-extra_frames = {5: [(0, 5, 0), 
-                    (0, 0, 0), 
-                    (0, 0, 0)]}
-movement = (BOUNCE, [(6, 15, 2), (0, 90, 90), (2, 2, 2)], 1, extra_frames)
-
-object_names = ['pCube' + str(i + 1) for i in range(12)]  #This just selects pCube1 to pCube12
-
-
-for i, object_name in enumerate(object_names):
-    reveal = RevealAnim(object_name, movement)
-    offset = frame_gap * i
-    reveal.set(start_frame + offset, end_frame + offset)
+def distance_between_points(p1, p2, ignore):
+    p1 = [j for i, j in enumerate(p1) if i not in ignore]
+    p2 = [j for i, j in enumerate(p2) if i not in ignore]
+    point_len = len(p1)
+    if point_len != len(p2):
+        raise TypeError('the two points have different lengths')
+    total = sum(pow(i - j, 2) for i, j in zip(p1, p2))
+    return pow(total, 0.5) / point_len
