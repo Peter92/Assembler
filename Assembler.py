@@ -20,6 +20,8 @@ def BOUNCE(RevealClass, start_frame, end_frame, start_location, start_rotation, 
     
     object_name = RevealClass.object_name
     
+    
+    
     if start_location is None:
         start_location = object_name.getTranslation()
     elif not absolute_location:
@@ -30,6 +32,7 @@ def BOUNCE(RevealClass, start_frame, end_frame, start_location, start_rotation, 
     elif not absolute_rotation:
         start_rotation = tuple(i - j for i, j in zip(RevealClass.end_rotation, start_rotation))
     rotation_total = tuple(i - j for i, j in zip(RevealClass.end_rotation, start_rotation))
+    print rotation_total
     
     if start_scale is None:
         start_scale = object_name.getScale()
@@ -54,7 +57,7 @@ def BOUNCE(RevealClass, start_frame, end_frame, start_location, start_rotation, 
     
     #Set the keyframes
     RevealClass.set_position(start_location, start_rotation, start_scale, start_frame)
-    RevealClass.set_position(RevealClass.end_location, RevealClass.end_rotation, RevealClass.end_scale, end_frame)
+    #RevealClass.set_position(RevealClass.end_location, RevealClass.end_rotation, RevealClass.end_scale, end_frame)
     
     #Set extra keyframes relative to the current position
     if extra_keyframes:
@@ -178,37 +181,22 @@ def create_animation(start, end, step, random_offset, object_list, movement, ext
     #If a dictionary containing the distance from a point is input
     elif isinstance(object_list, dict):
         
-        ########################## FIX THIS BIT!!!!!!!!!!!!!!!!!!!!!!!!!
-        
-        
         #Average the distance to fit the step size (may not work)
         distance_values = sorted(object_list.keys())
         distance_average = defaultdict(int)
         for i in range(1, len(distance_values)):
             distance_average[distance_values[i] - distance_values[i-1]] += 1
-        #distance_min = max(distance_average.iteritems(), key=itemgetter(1))[0]
-        
-        values_above_1 = []
-        
-        for k, v in distance_average.iteritems():
-            if v > 1:
-                values_above_1.append(k)
-        try:
-            distance_min = min(values_above_1)
-        except ValueError:
-            distance_min = min(distance_average.keys())
-        distance_min = max(step, distance_min)
-        distance_min = 10
-        
-        #################################
+        distance_min = max(distance_average.iteritems(), key=itemgetter(1))[0]
+        print distance_values
+        print distance_average
         
         for distance, object_names in object_list.iteritems():
             for object_name in object_names:
                 reveal = RevealAnim(object_name, movement)
-                offset = distance  * step + random.uniform(-random_offset, random_offset)
+                offset = distance / distance_min * step + random.uniform(-random_offset, random_offset)
+                #if not distance:
+                #     offset += step
                 reveal.set(start + offset, end + offset)
-                
-                
 
 def distance_between_points(p1, p2, ignore):
     p1 = [j for i, j in enumerate(p1) if i not in ignore]
