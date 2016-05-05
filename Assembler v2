@@ -1,0 +1,463 @@
+from __future__ import division
+import math
+import base64
+from collections import MutableMapping, defaultdict
+
+def int_to_bin(x, padding=0):
+    return ('{' + '0:0{}b'.format(padding) + '}').format(x)
+
+def convert_to_bytes(x):
+    x_len = len(x)
+    if x_len % 8:
+        x += '0' * (8 - x_len % 8)
+    as_list = [int(x[i:i + 8], 2) for i in range(0, len(x), 8)]
+    return ''.join(chr(i) for i in as_list)
+
+def convert_from_bytes(x):
+    return ''.join(int_to_bin(i, 8) for i in x)
+    
+class StoreData:
+    TYPES = [bool, int, str, dict, list, tuple, float, unicode, tuple, complex, type(None)]
+    _TYPES = {long: int} #Treat the key type as the value type
+    TYPE_LEN = int(math.ceil(math.log(len(TYPES), 2)))
+    LOC = 'C:/Users/Peter/AppData/Roaming/IndexDataTest'
+    
+    def save(self, x):
+        data = base64.b64encode(convert_to_bytes(self._encode_value(x)))
+        return data
+    
+    def load(self, x):
+        data, offset = self._decode_value(convert_from_bytes(bytearray(base64.b64decode(x))))
+        return data
+    
+    def _encode_value(self, x, _int_force_negative=False):
+        item_type = type(x)
+        if item_type in self._TYPES:
+            item_type = self._TYPES[item_type]
+        
+        try:
+            type_id = self.TYPES.index(item_type)
+        except ValueError:
+            raise ValueError("{} is not supported".format(item_type))
+        encoded_string = int_to_bin(type_id, self.TYPE_LEN)
+        
+        #Get the length of the input
+        if item_type == bool:
+            item_bin = str(int(bool(x)))
+            return encoded_string + '1' + item_bin
+        
+        elif item_type == type(None):
+            return encoded_string + '10'
+
+        if item_type in (int, str, unicode):
+            if item_type == int:
+                item_bin = int_to_bin(x).replace('-', '')
+                
+            elif item_type in (str, unicode):
+                item_bin = ''.join(int_to_bin(ord(i), 8) for i in x)
+                
+            item_len = len(item_bin)
+            num_bytes_int = (item_len - 1) // 8 + 1
+            
+        elif item_type in (float, complex):
+            num_bytes_int = 2
+        
+        elif item_type in (list, tuple, dict):
+            num_bytes_int = len(x)
+            
+        #Convert input length into number of bytes
+        num_bytes_bin = int_to_bin(num_bytes_int)
+        num_bytes_len = len(num_bytes_bin)
+        if num_bytes_len % 8:
+            num_bytes_bin = '0' * (8 - num_bytes_len % 8) + num_bytes_bin
+        
+        num_bytes_len = (len(num_bytes_bin) - 1) // 8 + 1
+        
+        encoded_string += '0' * (num_bytes_len - 1) + '1'
+        encoded_string += num_bytes_bin
+        
+        #Convert input to bytes
+        if item_type in (int, str):
+            
+            if item_type == int:
+                encoded_string += '0' if x > 0 else '1'
+            
+            remaining_bits = item_len % 8
+            if remaining_bits:
+                item_bin = '0' * (8 - item_len % 8) + item_bin
+            
+            encoded_string += item_bin
+            
+        elif item_type == float:
+            x_split = str(x).split('.')
+            encoded_string += '0' if x > 0 else '1'
+            encoded_string += self._encode_value(int(x_split[0]))
+            encoded_string += self._encode_value(x_split[1])
+        
+        elif item_type == complex:
+            encoded_string += self._encode_value(x.real)
+            encoded_string += self._encode_value(x.imag)
+        
+        elif item_type in (list, tuple):
+            for i in x:
+                encoded_string += self._encode_value(i)
+                
+        elif item_type == dict:
+            for k, v in x.iteritems():
+                encoded_string += self._encode_value(k)
+                encoded_string += self._encode_value(v)
+        
+        return encoded_string
+
+
+    def _decode_value(self, x, start=0):
+        
+        #Find the item type
+        start_offset = start
+        end_offset = start_offset + self.TYPE_LEN
+        type_id = int(x[start_offset:end_offset], 2)
+        item_type = self.TYPES[type_id]
+        
+        #Find how many bytes the number of bytes is
+        byte_length = 0
+        while not int(x[end_offset + byte_length]):
+            byte_length += 1
+        byte_length += 1
+        
+        #Calculate the number of bytes
+        start_offset = end_offset + byte_length
+        end_offset = start_offset + byte_length * 8
+        num_bytes = int(x[start_offset:end_offset], 2)
+        
+        #Decode the rest
+        if item_type in (int, str, unicode):
+            start_offset = end_offset
+            
+            if item_type == int:
+                is_negative = int(x[start_offset])
+                start_offset += 1
+            
+            end_offset = start_offset + num_bytes * 8
+            data = x[start_offset:end_offset]
+        
+            if item_type == int:
+                data = int(data, 2) * (-1 if is_negative else 1)
+                
+            elif item_type in (str, unicode):
+                data = ''.join(chr(int(data[i:i + 8], 2)) for i in range(0, len(data), 8))
+        
+        elif item_type in (list, tuple):
+            data = []
+            for i in range(num_bytes):
+                value, end_offset = self._decode_value(x, start=end_offset)
+                data.append(value)
+            if item_type == tuple:
+                data = tuple(data)
+        
+        elif item_type == dict:
+            data = {}
+            for i in range(num_bytes):
+                k, end_offset = self._decode_value(x, start=end_offset)
+                v, end_offset = self._decode_value(x, start=end_offset)
+                data[k] = v
+        
+        elif item_type == float:
+            data = []
+            is_negative = int(x[end_offset])
+            end_offset += 1
+            for i in range(2):
+                value, end_offset = self._decode_value(x, start=end_offset)
+                data.append(str(value))
+            data = float('.'.join(data)) * (-1 if is_negative else 1)
+        
+        elif item_type == complex:
+            data = []
+            for i in range(2):
+                value, end_offset = self._decode_value(x, start=end_offset)
+                data.append(str(value))
+            data = map(float, data)
+            data = data[0] + data[1] * 1j
+        
+        elif item_type == bool:
+            end_offset = start_offset + 1
+            print x[start_offset:]
+            data = bool(int(x[start_offset:end_offset]))
+        
+        elif item_type == type(None):
+            end_offset = start_offset + 1
+            data = None
+        
+        return data, end_offset
+
+
+    def _decode_file(self, f, start=0):
+        
+        #Find the item type
+        start_offset = start
+        end_offset = start_offset + self.TYPE_LEN
+        f.seek(start_offset)
+        type_id = int(f.read(self.TYPE_LEN), 2)
+        item_type = self.TYPES[type_id]
+        
+        #Find how many bytes the number of bytes is
+        byte_length = 0
+        #while not int(x[end_offset + byte_length]):
+        while not int(f.read(1)):
+            byte_length += 1
+        byte_length += 1
+        
+        #Calculate the number of bytes
+        start_offset = end_offset + byte_length
+        end_offset = start_offset + byte_length * 8
+        x = f.read(byte_length * 8)
+        #num_bytes = int(x[start_offset:end_offset], 2)
+        num_bytes = int(x, 2)
+        
+        #Decode the rest
+        if item_type in (int, str, unicode):
+            start_offset = end_offset
+            
+            if item_type == int:
+                #f.seek(start_offset)
+                x = f.read(1)
+                is_negative = int(x)
+                start_offset += 1
+            
+            end_offset = start_offset + num_bytes * 8
+            #f.seek(start_offset)
+            x = f.read(num_bytes * 8)
+            data = x
+        
+            if item_type == int:
+                data = int(data, 2) * (-1 if is_negative else 1)
+                
+            elif item_type in (str, unicode):
+                data = ''.join(chr(int(data[i:i + 8], 2)) for i in range(0, len(data), 8))
+        
+        elif item_type in (list, tuple):
+            data = []
+            for i in range(num_bytes):
+                value, end_offset = self._decode_file(f, start=end_offset)
+                data.append(value)
+            if item_type == tuple:
+                data = tuple(data)
+        
+        elif item_type == dict:
+            data = {}
+            for i in range(num_bytes):
+                k, end_offset = self._decode_file(f, start=end_offset)
+                v, end_offset = self._decode_file(f, start=end_offset)
+                data[k] = v
+        
+        elif item_type == float:
+            data = []
+            x = f.read(1)
+            is_negative = int(x)
+            end_offset += 1
+            for i in range(2):
+                value, end_offset = self._decode_file(f, start=end_offset)
+                data.append(str(value))
+            data = float('.'.join(data)) * (-1 if is_negative else 1)
+        
+        elif item_type == complex:
+            data = []
+            for i in range(2):
+                value, end_offset = self._decode_file(f, start=end_offset)
+                data.append(str(value))
+            data = map(float, data)
+            data = data[0] + data[1] * 1j
+        
+        elif item_type == bool:
+            end_offset = start_offset + 1
+            x = f.read(1)
+            data = bool(int(x))
+        
+        elif item_type == type(None):
+            end_offset = start_offset + 1
+            data = None
+        
+        return data, end_offset
+
+    def _savefile(self, x):
+        data = self._encode_value(x)
+        remainder = len(data) % 8
+        if remainder:
+            data += '0' * (8 - remainder)
+            
+        with open(self.LOC, 'w') as f:
+            f.write(data)
+    
+    def _readfile(self):
+        with open(self.LOC, 'r') as f:
+            data, offset = self._decode_file(f)
+        return data
+
+class _MovementInfo(object):
+    def __init__(self, location=None, rotation=None, scale=None, visibility=None):
+        self.location = location
+        self.rotation = rotation
+        self.scale = scale
+        self.visibility = visibility
+    
+    def __repr__(self):
+        return '{x.__class__.__name__}(location={x.location}, rotation={x.rotation}, scale={x.scale}, visibility={x.visibility}'.format(x=self)
+
+def load_data(attempt=0):
+    try:
+        return StoreData().load(str(pm.fileInfo['AssemblyScript']))
+    except KeyError:
+        pm.fileInfo['AssemblyScript'] = StoreData().save({})
+        if not attempt:
+            return load_data(attempt + 1)
+        else:
+            return {}
+
+def save_data(data):
+    pm.fileInfo['AssemblyScript'] = StoreData().save(data)
+
+class SetGroup(_MovementInfo):
+    
+    def __init__(self, name=None, start=None, distance=None, random=None, selection=None, origin=None, bounce=0):
+        
+        if name is None:
+            raise TypeError('name of group must be provided')
+        self.name = name
+        
+        #super(SetGroup, self).__init__(location, rotation, scale, visibility)
+        
+        if selection is None:
+            self.selection = []
+        else:
+            self.selection = selection
+        self.origin = origin
+        
+        self.bounce = bounce
+        
+        self.start = start
+        self.distance = distance
+        self.random = random
+        
+        self.frame = defaultdict(_MovementInfo)
+    
+    def __repr__(self):
+        return '{x.__class__.__name__}()'.format(x=self)
+    
+    def validate(self):
+        if self.selection is None:
+            raise TypeError('selection is not defined')
+        elif not self.selection:
+            raise TypeError('selection is empty')
+        elif not isinstance(self.selection, (tuple, list)):
+            raise TypeError('selection must be a tuple or list')
+    
+    def save(self):
+        self.load()
+        #self.validate()
+        self.data[self.name] = {'ObjectSelection': self.selection,
+                                'ObjectOrigin': self.origin,
+                                'FrameStart': self.start,
+                                'FrameDistance': self.distance,
+                                'FrameRandom': self.random}
+        pm.fileInfo['AssemblyScript'] = StoreData().save(self.data)
+
+    def load(self):
+        self.data = load_data()
+
+    
+
+class UserInterface(object):
+    name = 'Assembler'
+    stored_values = defaultdict(int)
+    
+    def __init__(self):
+        self.selected_objects = []
+        self._group_objects = set()
+        self._group_name = None
+        self.reload()
+    
+    def reload(self):
+        self.data = load_data()
+        
+        #Get a list of all scene objects (without cameras)
+        self.objects = pm.ls(dag=True, exactType=pm.nodetypes.Transform)
+        for cam_name in (i.replace('Shape', '') for i in pm.ls(exactType=pm.nodetypes.Camera)):
+            try: 
+                del self.objects[self.objects.index(pm.nodetypes.Transform(cam_name))]
+            except (pm.MayaNodeError, ValueError):
+                pass
+        self.objects = sorted(map(str, self.objects))
+    
+    def display(self):
+        
+        self.reload()
+        self.inputs = defaultdict(dict)
+        
+        if pm.window(self.name, exists=True):
+            pm.deleteUI(self.name, window=True)
+
+        win = pm.window(self.name, title=self.name, sizeable=True, resizeToFitChildren=True)
+
+        with pm.rowColumnLayout(numberOfColumns=1):
+            self.inputs[pm.textScrollList]['Groups'] = pm.textScrollList(allowMultiSelection=False, append=self.data.keys(), height=100, selectCommand=pm.Callback(self._group_change))
+            self.inputs[pm.textScrollList]['All'] = pm.textScrollList(allowMultiSelection=True, append=self.objects, height=200, selectCommand=pm.Callback(self._selection_change))
+            with pm.rowColumnLayout(numberOfColumns=3):
+                self.inputs[pm.button]['RefreshAll'] = pm.button(label='Refresh', command=pm.Callback(self._selection_refresh))
+                pm.text(label='')
+                self.inputs[pm.button]['SaveSelection'] = pm.button(label='Save', command=pm.Callback(self._selection_save))
+
+        self._selection_change()
+        pm.showWindow()
+    
+    def _group_change(self):
+        """When the object group has been changed."""
+        selection = pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], query=True, selectItem=True)
+        if selection:
+            self._group_name = selection[0]
+            pm.textScrollList(self.inputs[pm.textScrollList]['All'], edit=True, deselectAll=True)
+            if self.data[self._group_name]['ObjectSelection']:
+                valid_selection = [i for i in self.data[self._group_name]['ObjectSelection'] if i in self.objects]
+                pm.textScrollList(self.inputs[pm.textScrollList]['All'], edit=True, selectItem=valid_selection)
+            self._selection_change()
+    
+    def _selection_change(self):
+        """When the object selection has changed."""
+        #If nothing is selected disable controls
+        if not self._group_name:
+            pm.textScrollList(self.inputs[pm.textScrollList]['All'], edit=True, enable=False)
+            pm.button(self.inputs[pm.button]['SaveSelection'], edit=True, enable=False)
+        #Set button visibility if things have changed
+        else:
+            pm.textScrollList(self.inputs[pm.textScrollList]['All'], edit=True, enable=True)
+            self._group_objects = pm.textScrollList(self.inputs[pm.textScrollList]['All'], query=True, selectItem=True)
+            objects_changed = self._group_objects != self.data[self._group_name]['ObjectSelection']
+            pm.button(self.inputs[pm.button]['SaveSelection'], edit=True, enable=objects_changed)
+    
+    def _selection_refresh(self):
+        """Redraw the objects in the scene."""
+        self.reload()
+        pm.textScrollList(self.inputs[pm.textScrollList]['All'], edit=True, removeAll=True)
+        pm.textScrollList(self.inputs[pm.textScrollList]['All'], edit=True, append=self.objects)
+        self._group_change()
+    
+    def _selection_save(self):
+        """Save the group selection to the scene."""
+        self.data[self._group_name]['ObjectSelection'] = map(str, self._group_objects)
+        pm.fileInfo['AssemblyScript'] = StoreData().save(self.data)
+        self._selection_change()
+        
+
+
+'''
+a = SetGroup('test')
+a.frame[5].location = (5, 5)
+print a.frame[5].scale
+a.save()
+'''
+pm.fileInfo['AssemblyScript'] = StoreData().save({})
+a = SetGroup('test')
+a.selection=['pCube1', 'pCone1']
+a.save()
+for i in range(10):
+    a = SetGroup('test'+str(i))
+    a.save()
+UserInterface().display()
