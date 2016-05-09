@@ -192,7 +192,7 @@ class StoreData:
         
         elif item_type == bool:
             end_offset = start_offset + 1
-            print x[start_offset:]
+            #print x[start_offset:]
             data = bool(int(x[start_offset:end_offset]))
         
         elif item_type == type(None):
@@ -314,6 +314,7 @@ class _MovementInfo(object):
     def __repr__(self):
         return '{x.__class__.__name__}(location={x.location}, rotation={x.rotation}, scale={x.scale}, visibility={x.visibility}'.format(x=self)
 
+
 def load_data(attempt=0):
     try:
         return StoreData().load(str(pm.fileInfo['AssemblyScript']))
@@ -329,7 +330,7 @@ def save_data(data):
 
 class SetGroup(_MovementInfo):
     
-    def __init__(self, name=None, start=None, distance=None, random=None, selection=None, origin=None, bounce=0):
+    def __init__(self, name=None, start=None, distance=None, random=None, selection=None, origin=None, bounce=0, list_order=None):
         
         if name is None:
             raise TypeError('name of group must be provided')
@@ -350,6 +351,7 @@ class SetGroup(_MovementInfo):
         self.random = random
         
         self.frame = defaultdict(_MovementInfo)
+        self.list_order = list_order
     
     def __repr__(self):
         return '{x.__class__.__name__}()'.format(x=self)
@@ -370,7 +372,7 @@ class SetGroup(_MovementInfo):
                                 'FrameStart': self.start,
                                 'FrameDistance': self.distance,
                                 'FrameRandom': self.random,
-                                'ListOrder': None} #need to fix float('inf')
+                                'ListOrder': self.list_order} #need to fix float('inf')
         pm.fileInfo['AssemblyScript'] = StoreData().save(self.data)
 
     def load(self):
@@ -387,6 +389,8 @@ class UserInterface(object):
                           }
         self.inputs = defaultdict(dict)
         self.reload()
+        self._group_new_count = 0
+        self._group_unsaved = []
     
     def reload(self):
         self.data = load_data()
@@ -414,70 +418,188 @@ class UserInterface(object):
 
         win = pm.window(self.name, title=self.name, sizeable=True, resizeToFitChildren=True)
 
-        with pm.rowColumnLayout(numberOfColumns=1):
-            self.inputs[pm.textScrollList]['Groups'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100, selectCommand=pm.Callback(self._group_select_new))
-            with pm.rowColumnLayout(numberOfColumns=11):
-                self.inputs[pm.button]['RefreshGroup'] = pm.button(label='Reload', command=pm.Callback(self._group_refresh))
-                pm.text(label='')
-                self.inputs[pm.button]['RemoveEmpty'] = pm.button(label='+', command=pm.Callback(self._group_add))
-                pm.text(label='')
-                self.inputs[pm.button]['RemoveEmpty'] = pm.button(label='-', command=pm.Callback(self._group_remove))
-                pm.text(label='')
-                self.inputs[pm.button]['RemoveEmpty'] = pm.button(label='^', command=pm.Callback(self._group_up))
-                pm.text(label='')
-                self.inputs[pm.button]['RemoveEmpty'] = pm.button(label='v', command=pm.Callback(self._group_down))
-                pm.text(label='')
-                self.inputs[pm.button]['RemoveEmpty'] = pm.button(label='Remove empty groups', command=pm.Callback(self._group_clean))
-                                
-            self.inputs[pm.textScrollList]['AllObjects'] = pm.textScrollList(allowMultiSelection=True, append=['error'], height=200, selectCommand=pm.Callback(self._objects_select))
-            with pm.rowColumnLayout(numberOfColumns=5):
-                self.inputs[pm.button]['RefreshObjects'] = pm.button(label='Refresh', command=pm.Callback(self._objects_refresh))
-                pm.text(label='')
-                self.inputs[pm.button]['SaveObjects'] = pm.button(label='Save', command=pm.Callback(self._objects_save))
-                pm.text(label='')
-                self.inputs[pm.checkBox]['HideSelected'] = pm.checkBox(label='Hide selected objects', value=self._settings['HideSelected'], changeCommand=pm.Callback(self._objects_hide))
+        with pm.rowColumnLayout(numberOfColumns=3):
+            with pm.rowColumnLayout(numberOfColumns=1):
+                self.inputs[pm.textScrollList]['Groups'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100, selectCommand=pm.Callback(self._group_select_new))
+                with pm.rowColumnLayout(numberOfColumns=11):
+                    self.inputs[pm.button]['GroupRefresh'] = pm.button(label='Reload', command=pm.Callback(self._group_refresh))
+                    pm.text(label='')
+                    self.inputs[pm.button]['GroupAdd'] = pm.button(label='+', command=pm.Callback(self._group_add))
+                    pm.text(label='')
+                    self.inputs[pm.button]['GroupRemove'] = pm.button(label='-', command=pm.Callback(self._group_remove))
+                    pm.text(label='')
+                    self.inputs[pm.button]['GroupMoveUp'] = pm.button(label='^', command=pm.Callback(self._group_up))
+                    pm.text(label='')
+                    self.inputs[pm.button]['GroupMoveDown'] = pm.button(label='v', command=pm.Callback(self._group_down))
+                    pm.text(label='')
+                    self.inputs[pm.button]['GroupClean'] = pm.button(label='Remove empty groups', command=pm.Callback(self._group_clean))
+                                    
+                self.inputs[pm.textScrollList]['AllObjects'] = pm.textScrollList(allowMultiSelection=True, append=['error'], height=200, selectCommand=pm.Callback(self._objects_select))
+                with pm.rowColumnLayout(numberOfColumns=5):
+                    self.inputs[pm.button]['ObjectRefresh'] = pm.button(label='Refresh', command=pm.Callback(self._objects_refresh))
+                    pm.text(label='')
+                    self.inputs[pm.button]['ObjectSave'] = pm.button(label='Save All', command=pm.Callback(self._save_all))
+                    pm.text(label='')
+                    self.inputs[pm.checkBox]['ObjectHide'] = pm.checkBox(label='Hide selected objects', value=self._settings['HideSelected'], changeCommand=pm.Callback(self._objects_hide))
         
+            with pm.rowColumnLayout(numberOfColumns=1):
+                pm.text(label='')
+                
+            with pm.rowColumnLayout(numberOfColumns=1):
+                with pm.rowColumnLayout(numberOfColumns=3):
+                    pm.text(label='Group Name', align='right')
+                    pm.text(label='')
+                    self.inputs[pm.textField]['GroupName'] = pm.textField(text='error', changeCommand=pm.Callback(self._group_name_save))
+                with pm.rowColumnLayout(numberOfColumns=1):
+                    self.inputs[pm.button]['GroupUpdate'] = pm.button(label='Update', command=pm.Callback(self._group_save))
+
+                
         print 'finish ui'
         self._objects_select()
         self._redraw_groups()
-        self._redraw_selection()
+        self._group_select_new()
         self.save()
         pm.showWindow()
         
-    def save(self):
-        pm.fileInfo['AssemblyScript'] = StoreData().save(self.data)
-        self._visibility_save()
-        self.reload()
+    def save(self, original=False):
+        if original:
+            pm.fileInfo['AssemblyScript'] = StoreData().save(self._original_data)
+        else:
+            for k, v in self.data.iteritems():
+                print k, v
+            pm.fileInfo['AssemblyScript'] = StoreData().save(self.data)
+            self._group_unsaved = []
+            self._visibility_save()
+            self.reload()
+    
+    def _group_name_save(self):
+        if self._settings['GroupName']:
+            new_name = str(pm.textField(self.inputs[pm.textField]['GroupName'], query=True, text=True))
+            old_data = self.data[self._settings['GroupName']]
+            
+            #Delete old keys
+            try:
+                del self.data[self._settings['GroupName']]
+            except KeyError:
+                pass
+            try:
+                del self._original_data[self._settings['GroupName']]
+            except KeyError:
+                pass
+                
+            #Force unique name
+            if new_name in self.data:
+                count = 1
+                while '{}.{}'.format(new_name, count) in self.data:
+                    count += 1
+                new_name = '{}.{}'.format(new_name, count)
         
+            self.data[new_name] = old_data
+            self._settings['GroupName'] = new_name
+            self._redraw_groups()
+        
+    def _group_save(self):
+        print 'save group info'
+        self._group_name_save()
+    
     def _group_select_new(self):
-        print 'changed group to', pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], query=True, selectItem=True)[0].split(' (')[0]
-        self._settings['GroupName'] = pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], query=True, selectItem=True)[0].split(' (')[0]
+        try:
+            self._settings['GroupName'] = pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], query=True, selectItem=True)[0].split(' (')[0].replace('*', '')
+        except IndexError:
+            self._settings['GroupName'] = None
+            pm.textField(self.inputs[pm.textField]['GroupName'], edit=True, text='no selection', enable=False)
+        else:
+            print 'changed group to', self._settings['GroupName']
+            
+            pm.textField(self.inputs[pm.textField]['GroupName'], edit=True, text=self._settings['GroupName'], enable=True)
+            
         self._redraw_selection()
-        self._objects_select()
+        self._objects_select(_redraw=False)
     
     def _group_refresh(self):
-        print 'refresh'
+        print 'refresh groups'
         self.reload()
+        for k in self._group_unsaved:
+            del self._original_data[k]
+            del self.data[k]
+        self._group_unsaved = []
+        self.save(original=True)
         self._redraw_groups()
         self._redraw_selection()
         
     def _group_clean(self):
         print 'remove empty'
-        if self._settings['GroupName'] and not self.data[self._settings['GroupName']]['ObjectSelection']:
-            self._settings['GroupName'] = None
+        '''
+        need to reduce keys as well or errors will happen
+        '''
+        
+        '''
+        #if self._settings['GroupName'] and not self.data[self._settings['GroupName']]['ObjectSelection']:
+        try:
+            current_index = self.data[self._settings['GroupName']]['ListOrder']
+        except KeyError:
+            current_index = len(self.data) - 1
             
+        #Search through original data for the saved selection and not the current one
         invalid_groups = []
-        for k, v in self.data.iteritems():
+        new_keys = set(self.data.keys()) - set(self._original_data.keys())
+        for k, v in sorted(self._original_data.iteritems(), key=lambda (x, y): y['ListOrder']):
             if not len(v['ObjectSelection']):
                 invalid_groups.append(k)
-        for k in invalid_groups:
-            del self.data[k]
+            else:
+                self.data[k]['ListOrder'] -= len(invalid_groups)
+        for k in invalid_groups + list(new_keys):
+            #del self._original_data[k]
+            try:
+                del self.data[k]
+            except KeyError:
+                pass
+        print min(len(self.data) - 1, max(0, current_index - 1))
+        #self._settings['GroupName'] = [k for k, v in self.data.iteritems() if v['ListOrder'] == min(len(self.data) - 1, max(0, current_index - 1))][0]
+            
+        self._redraw_selection()
         self._redraw_groups()
+        '''
     
     def _group_add(self):
-        pass
+        print 'add group'
+        current_index = len(self.data) - 1
+        if self._settings['GroupName']:
+            current_index = self.data[self._settings['GroupName']]['ListOrder']
+        for k, v in self.data.iteritems():
+            if v['ListOrder'] > current_index:
+                self.data[k]['ListOrder'] += 1
+        
+        self._settings['GroupName'] = 'group {}'.format(self._group_new_count)
+        self._group_new_count += 1
+        g = SetGroup(self._settings['GroupName'], list_order=current_index + 1)
+        g.save()
+        self.data[self._settings['GroupName']] = load_data()[self._settings['GroupName']]
+        self._group_unsaved.append(self._settings['GroupName'])
+        self._redraw_selection()
+        self._redraw_groups()
+        self._group_select_new()
+            
     def _group_remove(self):
-        pass
+        if self._settings['GroupName']:
+            current_index = self.data[self._settings['GroupName']]['ListOrder']
+            for k, v in self.data.iteritems():
+                if v['ListOrder'] > current_index:
+                    self.data[k]['ListOrder'] -= 1
+            del self.data[self._settings['GroupName']]
+            try:
+                del self._original_data[self._settings['GroupName']]
+            except KeyError:
+                pass
+            try:
+                self._settings['GroupName'] = [k for k, v in self.data.iteritems() if v['ListOrder'] == max(0, current_index - 1)][0]
+            except IndexError:
+                self._settings['GroupName'] = None
+            self._redraw_selection()
+            self._redraw_groups()
+            self._group_select_new()
+        
+        
     def _group_up(self):
         print 'move group up'
         list_order = self.data[self._settings['GroupName']]['ListOrder']
@@ -500,26 +622,31 @@ class UserInterface(object):
             self.data[self._settings['GroupName']]['ListOrder'], self.data[closest_higher[0]]['ListOrder'] = self.data[closest_higher[0]]['ListOrder'], self.data[self._settings['GroupName']]['ListOrder']
         self._redraw_groups()
     
-    def _objects_select(self):
+    def _objects_select(self, _redraw=True):
         print 'select objects, update visibility'
         
         #If nothing is selected disable controls
-        if not self._settings['GroupName']:
+        if not self._settings['GroupName'] or self._settings['GroupName'] not in self.data:
             pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], edit=True, enable=False)
-            pm.button(self.inputs[pm.button]['SaveObjects'], edit=True, enable=False)
+            pm.button(self.inputs[pm.button]['ObjectSave'], edit=True, enable=False)
         #Set button visibility if things have changed
         else:
             pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], edit=True, enable=True)
             self._settings['GroupObjects'] = set(map(str, pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], query=True, selectItem=True)))
+            self.data[self._settings['GroupName']]['ObjectSelection'] = self._settings['GroupObjects']
         self._visibility_save()
+        if _redraw:
+            self._redraw_groups()
     
     def _visibility_save(self):
         print 'update save visibility'
         changed = False
         
+        '''
         #Check for new selection
-        if self._settings['GroupName']:
+        if self._settings['GroupName'] and self._settings['GroupName'] in self.data:
             changed = self._settings['GroupObjects'] != self.data[self._settings['GroupName']]['ObjectSelection']
+        '''
         
         #Check for if empty objects have been removed
         if not changed:
@@ -528,23 +655,25 @@ class UserInterface(object):
         #Check for new order
         if not changed:
             changed = sorted(self.data.keys()) != sorted(self._original_data.keys())
+            if changed:
+                print 'maybe this'
 
-        pm.button(self.inputs[pm.button]['SaveObjects'], edit=True, enable=changed)
+        pm.button(self.inputs[pm.button]['ObjectSave'], edit=True, enable=changed)
     
     def _objects_refresh(self):
         print 'refresh objects'
-        self.reload_objects()
+        self.reload()
         self._redraw_selection()
         
-    def _objects_save(self):
+    def _save_all(self):
         print 'save objects'
-        self.data[self._settings['GroupName']]['ObjectSelection'] = set(self._settings['GroupObjects'])
+        #self.data[self._settings['GroupName']]['ObjectSelection'] = set(self._settings['GroupObjects'])
         self.save()
         self._redraw_groups()
     
     def _objects_hide(self):
         print 'hide objects'
-        self._settings['HideSelected'] = pm.checkBox(self.inputs[pm.checkBox]['HideSelected'], query=True, value=True)
+        self._settings['HideSelected'] = pm.checkBox(self.inputs[pm.checkBox]['ObjectHide'], query=True, value=True)
         self._redraw_selection()
         
     def _redraw_selection(self):
@@ -559,7 +688,7 @@ class UserInterface(object):
         else:
             self._selection_clean(self._settings['GroupName'])
             if self._settings['HideSelected']:
-                for k, v in self.data.iteritems():
+                for k, v in self._original_data.iteritems():
                     if k != self._settings['GroupName']:
                         object_list.difference_update(v['ObjectSelection'])
             object_list.update(selected_objects)
@@ -594,11 +723,19 @@ class UserInterface(object):
         pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], edit=True, append=group_names)
         if self._settings['GroupName']:
             pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], edit=True, selectItem=self._group_name_format(self._settings['GroupName']))
-        self._objects_select()
+        self._objects_select(_redraw=False)
     
     def _group_name_format(self, k):
-        num_items = len(self.data[k]['ObjectSelection'])
-        return '{} ({})'.format(k, num_items if num_items else 'empty')
+        try:
+            num_items = len(self._original_data[k]['ObjectSelection'])
+        except KeyError:
+            num_items = 0
+            difference = False
+        try:
+            difference = self._original_data[k]['ObjectSelection'] != self.data[k]['ObjectSelection']
+        except KeyError:
+            difference = True
+        return '{a}{k} ({n})'.format(k=k, n=num_items if num_items else 'empty', a='*' if difference else '')
     
     def _selection_clean(self, group):
         """Remove any items not in the scene."""
@@ -617,7 +754,7 @@ pm.fileInfo['AssemblyScript'] = StoreData().save({})
 a = SetGroup('test')
 a.selection=['pCube1', 'pCone1']
 a.save()
-for i in range(10):
+for i in range(2):
     a = SetGroup('test'+str(i))
     a.save()
 UserInterface().display()
