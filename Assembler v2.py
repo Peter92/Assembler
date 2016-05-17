@@ -1,16 +1,7 @@
-'''
-start frame
-random frame offset
-how far to bounce
-
-how many units per frame
-point of origin
-use selected object
-which axis
-'''
 from __future__ import division
 import math
 import base64
+from string import ascii_letters, digits
 from collections import MutableMapping, defaultdict
 
 def int_to_bin(x, padding=0):
@@ -330,7 +321,7 @@ def save_data(data):
 
 class SetGroup(_MovementInfo):
     
-    def __init__(self, name=None, start=None, distance=None, random=None, selection=None, origin=None, bounce=0, list_order=None):
+    def __init__(self, name=None, offset=0.0, distance=0.0, random=0.0, selection=None, origin=(0.0, 0.0, 0.0), bounce=0.0, list_order=None):
         
         if name is None:
             raise TypeError('name of group must be provided')
@@ -346,7 +337,7 @@ class SetGroup(_MovementInfo):
         
         self.bounce = bounce
         
-        self.start = start
+        self.offset = offset
         self.distance = distance
         self.random = random
         
@@ -369,9 +360,11 @@ class SetGroup(_MovementInfo):
         #self.validate()
         self.data[self.name] = {'ObjectSelection': set(self.selection),
                                 'ObjectOrigin': self.origin,
-                                'FrameStart': self.start,
+                                'FrameOffset': self.offset,
                                 'FrameDistance': self.distance,
-                                'FrameRandom': self.random,
+                                'BounceDistance': self.bounce,
+                                'RandomOffset': self.random,
+                                'Axis': (False, False, False),
                                 'ListOrder': self.list_order} #need to fix float('inf')
         pm.fileInfo['AssemblyScript'] = StoreData().save(self.data)
 
@@ -418,47 +411,165 @@ class UserInterface(object):
 
         win = pm.window(self.name, title=self.name, sizeable=True, resizeToFitChildren=True)
 
-        with pm.rowColumnLayout(numberOfColumns=3):
-            with pm.rowColumnLayout(numberOfColumns=1):
-                self.inputs[pm.textScrollList]['Groups'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100, selectCommand=pm.Callback(self._group_select_new))
-                with pm.rowColumnLayout(numberOfColumns=11):
-                    self.inputs[pm.button]['GroupRefresh'] = pm.button(label='Reload', command=pm.Callback(self._group_refresh))
-                    pm.text(label='')
-                    self.inputs[pm.button]['GroupAdd'] = pm.button(label='+', command=pm.Callback(self._group_add))
-                    pm.text(label='')
-                    self.inputs[pm.button]['GroupRemove'] = pm.button(label='-', command=pm.Callback(self._group_remove))
-                    pm.text(label='')
-                    self.inputs[pm.button]['GroupMoveUp'] = pm.button(label='^', command=pm.Callback(self._group_up))
-                    pm.text(label='')
-                    self.inputs[pm.button]['GroupMoveDown'] = pm.button(label='v', command=pm.Callback(self._group_down))
-                    pm.text(label='')
-                    self.inputs[pm.button]['GroupClean'] = pm.button(label='Remove empty groups', command=pm.Callback(self._group_clean))
-                                    
-                self.inputs[pm.textScrollList]['AllObjects'] = pm.textScrollList(allowMultiSelection=True, append=['error'], height=200, selectCommand=pm.Callback(self._objects_select))
-                with pm.rowColumnLayout(numberOfColumns=5):
-                    self.inputs[pm.button]['ObjectRefresh'] = pm.button(label='Refresh', command=pm.Callback(self._objects_refresh))
-                    pm.text(label='')
-                    self.inputs[pm.button]['ObjectSave'] = pm.button(label='Save All', command=pm.Callback(self._save_all))
-                    pm.text(label='')
-                    self.inputs[pm.checkBox]['ObjectHide'] = pm.checkBox(label='Hide selected objects', value=self._settings['HideSelected'], changeCommand=pm.Callback(self._objects_hide))
-        
-            with pm.rowColumnLayout(numberOfColumns=1):
-                pm.text(label='')
-                
-            with pm.rowColumnLayout(numberOfColumns=1):
-                with pm.rowColumnLayout(numberOfColumns=3):
-                    pm.text(label='Group Name', align='right')
-                    pm.text(label='')
-                    self.inputs[pm.textField]['GroupName'] = pm.textField(text='error', changeCommand=pm.Callback(self._group_name_save))
+        with pm.rowColumnLayout(numberOfColumns=1):
+            with pm.rowColumnLayout(numberOfColumns=5):
                 with pm.rowColumnLayout(numberOfColumns=1):
-                    self.inputs[pm.button]['GroupUpdate'] = pm.button(label='Update', command=pm.Callback(self._group_save))
+                    
+                    with pm.rowColumnLayout(numberOfColumns=3):
+                        pm.text(label='Group Selection', align='left')
+                        pm.text(label='')
+                        self.inputs[pm.textScrollList]['Groups'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100, selectCommand=pm.Callback(self._group_select_new))
+                        
+                        pm.text(label='')
+                        pm.text(label='')
+                        with pm.rowColumnLayout(numberOfColumns=9):
+                            self.inputs[pm.button]['GroupAdd'] = pm.button(label='+', command=pm.Callback(self._group_add))
+                            pm.text(label='')
+                            self.inputs[pm.button]['GroupRemove'] = pm.button(label='-', command=pm.Callback(self._group_remove))
+                            pm.text(label='')
+                            self.inputs[pm.button]['GroupMoveUp'] = pm.button(label='^', command=pm.Callback(self._group_up))
+                            pm.text(label='')
+                            self.inputs[pm.button]['GroupMoveDown'] = pm.button(label='v', command=pm.Callback(self._group_down))
+                            pm.text(label='')
+                            self.inputs[pm.button]['GroupClean'] = pm.button(label='Remove empty groups', command=pm.Callback(self._group_clean))
+                                      
+                        pm.text(label='Object Selection')
+                        pm.text(label='')
+                        self.inputs[pm.textScrollList]['AllObjects'] = pm.textScrollList(allowMultiSelection=True, append=['error'], height=200, selectCommand=pm.Callback(self._objects_select))
+                       
+                        pm.text(label='')      
+                        pm.text(label='')      
+                        with pm.rowColumnLayout(numberOfColumns=3):
+                            self.inputs[pm.button]['ObjectRefresh'] = pm.button(label='Refresh', command=pm.Callback(self._objects_refresh))
+                            pm.text(label='')
+                            self.inputs[pm.checkBox]['ObjectHide'] = pm.checkBox(label='Hide selected objects', value=self._settings['HideSelected'], changeCommand=pm.Callback(self._objects_hide))
+            
+                pm.text(label='')
+                    
+                with pm.rowColumnLayout(numberOfColumns=1):
+                    with pm.rowColumnLayout(numberOfColumns=3):
+                        pm.text(label='Group Name', align='right')
+                        pm.text(label='')
+                        self.inputs[pm.textField]['GroupName'] = pm.textField(text='error', changeCommand=pm.Callback(self._group_name_save))
+                        pm.text(label='Frame Offset', align='right')
+                        pm.text(label='')
+                        self.inputs[pm.floatSliderGrp]['FrameOffset'] = pm.floatSliderGrp(field=True, value=0, fieldMinValue=-float('inf'), fieldMaxValue=float('inf'), minValue=-1000, maxValue=1000, precision=2, changeCommand=pm.Callback(self._group_settings_save))
+                        pm.text(label='Random Offset', align='right')
+                        pm.text(label='')
+                        self.inputs[pm.floatSliderGrp]['RandomOffset'] = pm.floatSliderGrp(field=True, value=0, fieldMinValue=0, fieldMaxValue=float('inf'), precision=2, changeCommand=pm.Callback(self._group_settings_save))
+                        pm.text(label='Overshoot Distance', align='right')
+                        pm.text(label='')
+                        self.inputs[pm.floatSliderGrp]['BounceDistance'] = pm.floatSliderGrp(field=True, value=0, fieldMinValue=0, fieldMaxValue=float('inf'), precision=2, changeCommand=pm.Callback(self._group_settings_save))
+                        pm.text(label='')
+                        pm.text(label='')
+                        pm.text(label='')
+                        pm.text(label='Distance Per Frame', align='right')
+                        pm.text(label='')
+                        self.inputs[pm.floatSliderGrp]['DistanceUnits'] = pm.floatSliderGrp(field=True, value=100, fieldMinValue=0, fieldMaxValue=float('inf'), maxValue=1000, precision=2, changeCommand=pm.Callback(self._group_settings_save))
+                        pm.text(label='Animation Origin', align='right')
+                        pm.text(label='')
+                        with pm.rowColumnLayout(numberOfColumns=3):
+                            self.inputs[pm.textField]['OriginX'] = pm.textField(text='error', changeCommand=pm.Callback(self._group_settings_save))
+                            self.inputs[pm.textField]['OriginY'] = pm.textField(text='error', changeCommand=pm.Callback(self._group_settings_save))
+                            self.inputs[pm.textField]['OriginZ'] = pm.textField(text='error', changeCommand=pm.Callback(self._group_settings_save))
+                        pm.text(label='')
+                        pm.text(label='')
+                        self.inputs[pm.button]['OriginApply'] = pm.button(label='Use Current Selection', command=pm.Callback(self._set_origin_location))
+                        
+                        pm.text(label='Animation Axis', align='right')
+                        pm.text(label='')
+                        with pm.rowColumnLayout(numberOfColumns=5):
+                            self.inputs[pm.checkBox]['OriginX'] = pm.checkBox(label='X', value=False, changeCommand=pm.Callback(self._group_settings_save))
+                            pm.text(label='')
+                            self.inputs[pm.checkBox]['OriginY'] = pm.checkBox(label='Y', value=False, changeCommand=pm.Callback(self._group_settings_save))
+                            pm.text(label='')
+                            self.inputs[pm.checkBox]['OriginZ'] = pm.checkBox(label='Z', value=False, changeCommand=pm.Callback(self._group_settings_save))
+                        pm.text(label='')
+                        pm.text(label='')
+                        pm.text(label='')
+                        pm.text(label='Frame Selection', align='right')
+                        
+                        pm.text(label='')
+                        self.inputs[pm.textScrollList]['FrameSelection'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100)
+                        pm.text(label='')
+                        pm.text(label='')
+                        with pm.rowColumnLayout(numberOfColumns=7):
+                            self.inputs[pm.button]['FrameAdd'] = pm.button(label='+')
+                            pm.text(label='')
+                            self.inputs[pm.button]['FrameRemove'] = pm.button(label='-')
+                            pm.text(label='')
+                            self.inputs[pm.button]['FrameMoveUp'] = pm.button(label='^')
+                            pm.text(label='')
+                            self.inputs[pm.button]['FrameMoveDown'] = pm.button(label='v')
 
-                
-        print 'finish ui'
+                pm.text(label='')
+                    
+                with pm.scrollLayout():
+                    with pm.rowColumnLayout(numberOfColumns=1):
+                        with pm.rowColumnLayout(numberOfColumns=3):
+                            pm.text(label='Frame', align='right')
+                            pm.text(label='')
+                            self.inputs[pm.textField]['CurrentFrame'] = pm.textField(text='error')
+                        with pm.frameLayout(label='Location', collapsable=True, collapse=False) as self.inputs[pm.frameLayout]['Location']:
+                            with pm.tabLayout(tabsVisible=False):
+                                with pm.rowColumnLayout(numberOfColumns=1):
+                                    with pm.rowColumnLayout(numberOfColumns=5):             
+                           
+                                        pm.text(label='Coordinates', align='right')
+                                        pm.text(label='')
+                                        pm.text(label='min', align='center')
+                                        
+                                        pm.text(label='')
+                                        pm.text(label='max', align='center')
+                                        pm.text(label='x', align='right')
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['test'] = pm.textField(text='error')
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['test'] = pm.textField(text='error')
+                                        pm.text(label='y', align='right')
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['test'] = pm.textField(text='error')
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['test'] = pm.textField(text='error')
+                                        pm.text(label='z', align='right')
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['test'] = pm.textField(text='error')
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['test'] = pm.textField(text='error')
+                                        
+                                    with pm.rowColumnLayout(numberOfColumns=5):                 
+                                        pm.radioCollection()
+                                        pm.radioButton(label='Absolute')
+                                        with pm.rowColumnLayout(numberOfColumns=2): 
+                                            pm.radioButton(label='Relative to')
+                                            pm.optionMenu(label='')
+                                            pm.menuItem(label='Current Location')
+                                            frames = ['frame1', 'frame2', 'frame3']
+                                            for frame in frames:
+                                                pm.menuItem(label=frame)
+                                        pm.text(label='')
+                                        pm.text(label='')
+                                        pm.text(label='')
+                    
+            with pm.rowColumnLayout(numberOfColumns=5):
+                button_width = 50
+                button_padding = 10
+                pm.text(label=' ' * button_padding)
+                pm.text(label=' ' * button_width)
+                pm.text(label=' ' * button_padding)
+                pm.text(label=' ' * button_width)
+                pm.text(label=' ' * button_padding)
+                pm.text(label='')
+                self.inputs[pm.button]['GroupRefresh'] = pm.button(label='Reload', command=pm.Callback(self._group_refresh))
+                pm.text(label='')
+                self.inputs[pm.button]['ObjectSave'] = pm.button(label='Save All', command=pm.Callback(self._save_all))
+                pm.text(label='')
+
+        print 'ui'
         self._objects_select()
-        self._redraw_groups()
         self._group_select_new()
         self.save()
+        self._redraw_groups()
         pm.showWindow()
         
     def save(self, original=False):
@@ -472,9 +583,45 @@ class UserInterface(object):
             self._visibility_save()
             self.reload()
     
+    def _group_settings_save(self):
+        print 'update group settings'
+        if self._settings['GroupName']:
+            self.data[self._settings['GroupName']]['FrameOffset'] = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['FrameOffset'], query=True, value=True)
+            self.data[self._settings['GroupName']]['RandomOffset'] = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['RandomOffset'], query=True, value=True)
+            self.data[self._settings['GroupName']]['BounceDistance'] = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['BounceDistance'], query=True, value=True)
+            self.data[self._settings['GroupName']]['FrameDistance'] = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], query=True, value=True)
+            
+            try:
+                origin_x = float(pm.textField(self.inputs[pm.textField]['OriginX'], query=True, text=True))
+            except ValueError:
+                origin_x = self.data[self._settings['GroupName']]['ObjectOrigin'][0]
+            try:
+                origin_y = float(pm.textField(self.inputs[pm.textField]['OriginY'], query=True, text=True))
+            except ValueError:
+                origin_y = self.data[self._settings['GroupName']]['ObjectOrigin'][1]
+            try:
+                origin_z = float(pm.textField(self.inputs[pm.textField]['OriginZ'], query=True, text=True))
+            except ValueError:
+                origin_z = self.data[self._settings['GroupName']]['ObjectOrigin'][2]
+            self.data[self._settings['GroupName']]['ObjectOrigin'] = (origin_x, origin_y, origin_z)
+            pm.textField(self.inputs[pm.textField]['OriginX'], edit=True, text=origin_x)
+            pm.textField(self.inputs[pm.textField]['OriginY'], edit=True, text=origin_y)
+            pm.textField(self.inputs[pm.textField]['OriginZ'], edit=True, text=origin_z)
+            
+            
+            self.data[self._settings['GroupName']]['Axis'] = (pm.checkBox(self.inputs[pm.checkBox]['OriginX'], query=True, value=True),
+                                                              pm.checkBox(self.inputs[pm.checkBox]['OriginY'], query=True, value=True),
+                                                              pm.checkBox(self.inputs[pm.checkBox]['OriginZ'], query=True, value=True))
+            
+
+            self._redraw_groups()
+    
     def _group_name_save(self):
+        print 'save name'
         if self._settings['GroupName']:
             new_name = str(pm.textField(self.inputs[pm.textField]['GroupName'], query=True, text=True))
+            new_name = ''.join(i for i in new_name if i in ascii_letters + digits + '.-_ "~')
+            
             old_data = self.data[self._settings['GroupName']]
             
             #Delete old keys
@@ -498,9 +645,6 @@ class UserInterface(object):
             self._settings['GroupName'] = new_name
             self._redraw_groups()
         
-    def _group_save(self):
-        print 'save group info'
-        self._group_name_save()
     
     def _group_select_new(self):
         try:
@@ -508,13 +652,57 @@ class UserInterface(object):
         except IndexError:
             self._settings['GroupName'] = None
             pm.textField(self.inputs[pm.textField]['GroupName'], edit=True, text='no selection', enable=False)
+            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], edit=True, value=0, enable=False)
+            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['FrameOffset'], edit=True, value=0, enable=False)
+            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['RandomOffset'], edit=True, value=0, enable=False)
+            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['BounceDistance'], edit=True, value=0, enable=False)
+            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], edit=True, value=0, enable=False)
+            pm.button(self.inputs[pm.button]['OriginApply'], edit=True, label='Use Current Selection', enable=False)
+            pm.textField(self.inputs[pm.textField]['OriginX'], edit=True, text='no selection', enable=False)
+            pm.textField(self.inputs[pm.textField]['OriginY'], edit=True, text='no selection', enable=False)
+            pm.textField(self.inputs[pm.textField]['OriginZ'], edit=True, text='no selection', enable=False)
+            pm.checkBox(self.inputs[pm.checkBox]['OriginX'], edit=True, value=False, enable=False)
+            pm.checkBox(self.inputs[pm.checkBox]['OriginY'], edit=True, value=False, enable=False)
+            pm.checkBox(self.inputs[pm.checkBox]['OriginZ'], edit=True, value=False, enable=False)
         else:
             print 'changed group to', self._settings['GroupName']
             
             pm.textField(self.inputs[pm.textField]['GroupName'], edit=True, text=self._settings['GroupName'], enable=True)
+            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], edit=True, value=self.data[self._settings['GroupName']]['FrameDistance'], enable=True)
+            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['FrameOffset'], edit=True, value=self.data[self._settings['GroupName']]['FrameOffset'], enable=True)
+            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['RandomOffset'], edit=True, value=self.data[self._settings['GroupName']]['FrameOffset'], enable=True)
+            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['BounceDistance'], edit=True, value=self.data[self._settings['GroupName']]['BounceDistance'], enable=True)
+            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], edit=True, value=self.data[self._settings['GroupName']]['FrameDistance'], enable=True)
+            pm.button(self.inputs[pm.button]['OriginApply'], edit=True, label='Use Current Selection', enable=True)
+            origin = [i if i else 0.0 for i in self.data[self._settings['GroupName']]['ObjectOrigin']]
+            pm.textField(self.inputs[pm.textField]['OriginX'], edit=True, text=origin[0], enable=True)
+            pm.textField(self.inputs[pm.textField]['OriginY'], edit=True, text=origin[1], enable=True)
+            pm.textField(self.inputs[pm.textField]['OriginZ'], edit=True, text=origin[2], enable=True)
+            pm.checkBox(self.inputs[pm.checkBox]['OriginX'], edit=True, value=self.data[self._settings['GroupName']]['Axis'][0], enable=True)
+            pm.checkBox(self.inputs[pm.checkBox]['OriginY'], edit=True, value=self.data[self._settings['GroupName']]['Axis'][1], enable=True)
+            pm.checkBox(self.inputs[pm.checkBox]['OriginZ'], edit=True, value=self.data[self._settings['GroupName']]['Axis'][2], enable=True)
             
         self._redraw_selection()
         self._objects_select(_redraw=False)
+    
+    def _set_origin_location(self):
+        '''Set location of origin to the current selection, and average multiple objects if needed.'''
+        selected_objects = pm.ls(selection=True)
+        if selected_objects:
+            try:
+                object_locations = [i.getTranslation() for i in selected_objects]
+                average_x = sum(x for x, y, z in object_locations) / len(selected_objects)
+                average_y = sum(y for x, y, z in object_locations) / len(selected_objects)
+                average_z = sum(z for x, y, z in object_locations) / len(selected_objects)
+                pm.textField(self.inputs[pm.textField]['OriginX'], edit=True, text=average_x)
+                pm.textField(self.inputs[pm.textField]['OriginY'], edit=True, text=average_y)
+                pm.textField(self.inputs[pm.textField]['OriginZ'], edit=True, text=average_z)
+                pm.button(self.inputs[pm.button]['OriginApply'], edit=True, label='Use Current Selection')
+                self._group_settings_save()
+            except AttributeError:
+                pm.button(self.inputs[pm.button]['OriginApply'], edit=True, label='Use Current Selection (error with selection)')
+        else:
+            pm.button(self.inputs[pm.button]['OriginApply'], edit=True, label='Use Current Selection (nothing selected)')
     
     def _group_refresh(self):
         print 'refresh groups'
@@ -524,42 +712,42 @@ class UserInterface(object):
             del self.data[k]
         self._group_unsaved = []
         self.save(original=True)
+        self._group_select_new()
         self._redraw_groups()
         self._redraw_selection()
         
     def _group_clean(self):
         print 'remove empty'
-        '''
-        need to reduce keys as well or errors will happen
-        '''
         
-        '''
-        #if self._settings['GroupName'] and not self.data[self._settings['GroupName']]['ObjectSelection']:
         try:
             current_index = self.data[self._settings['GroupName']]['ListOrder']
         except KeyError:
             current_index = len(self.data) - 1
+        original_group = self._settings['GroupName']
             
-        #Search through original data for the saved selection and not the current one
-        invalid_groups = []
+        #Delete any group that is empty
         new_keys = set(self.data.keys()) - set(self._original_data.keys())
         for k, v in sorted(self._original_data.iteritems(), key=lambda (x, y): y['ListOrder']):
             if not len(v['ObjectSelection']):
-                invalid_groups.append(k)
-            else:
-                self.data[k]['ListOrder'] -= len(invalid_groups)
-        for k in invalid_groups + list(new_keys):
-            #del self._original_data[k]
+                self._settings['GroupName'] = k
+                self._group_delete()
+                print k, self.data.keys()
+        for k in new_keys:
+            if not len(v['ObjectSelection']):
+                self._settings['GroupName'] = k
+                self._group_delete()
+        
+        #Reselect a group
+        if original_group in self.data:
+            self._settings['GroupName'] = original_group
+        else:
             try:
-                del self.data[k]
-            except KeyError:
-                pass
-        print min(len(self.data) - 1, max(0, current_index - 1))
-        #self._settings['GroupName'] = [k for k, v in self.data.iteritems() if v['ListOrder'] == min(len(self.data) - 1, max(0, current_index - 1))][0]
-            
+                self._settings['GroupName'] = [k for k, v in self.data.iteritems() if v['ListOrder'] == min(len(self.data) - 1, max(0, current_index))][0]
+            except IndexError:
+                self._settings['GroupName'] = None
         self._redraw_selection()
         self._redraw_groups()
-        '''
+        self._group_select_new()
     
     def _group_add(self):
         print 'add group'
@@ -581,46 +769,55 @@ class UserInterface(object):
         self._group_select_new()
             
     def _group_remove(self):
+        print 'remove group'
+        self._group_delete()
+        if self._settings['GroupName']:
+            self._redraw_selection()
+            self._redraw_groups()
+            self._group_select_new()
+    
+    def _group_delete(self):
         if self._settings['GroupName']:
             current_index = self.data[self._settings['GroupName']]['ListOrder']
             for k, v in self.data.iteritems():
                 if v['ListOrder'] > current_index:
                     self.data[k]['ListOrder'] -= 1
             del self.data[self._settings['GroupName']]
+            '''
             try:
                 del self._original_data[self._settings['GroupName']]
             except KeyError:
                 pass
+                '''
             try:
                 self._settings['GroupName'] = [k for k, v in self.data.iteritems() if v['ListOrder'] == max(0, current_index - 1)][0]
             except IndexError:
                 self._settings['GroupName'] = None
-            self._redraw_selection()
-            self._redraw_groups()
-            self._group_select_new()
         
         
     def _group_up(self):
         print 'move group up'
-        list_order = self.data[self._settings['GroupName']]['ListOrder']
-        closest_lower = [None, -float('inf')]
-        for k, v in self.data.iteritems():
-            if closest_lower[1] < v['ListOrder'] < list_order:
-                closest_lower = [k, v['ListOrder']]
-        if closest_lower[0] is not None:
-            self.data[self._settings['GroupName']]['ListOrder'], self.data[closest_lower[0]]['ListOrder'] = self.data[closest_lower[0]]['ListOrder'], self.data[self._settings['GroupName']]['ListOrder']
-        self._redraw_groups()
+        if self._settings['GroupName']:
+            list_order = self.data[self._settings['GroupName']]['ListOrder']
+            closest_lower = [None, -float('inf')]
+            for k, v in self.data.iteritems():
+                if closest_lower[1] < v['ListOrder'] < list_order:
+                    closest_lower = [k, v['ListOrder']]
+            if closest_lower[0] is not None:
+                self.data[self._settings['GroupName']]['ListOrder'], self.data[closest_lower[0]]['ListOrder'] = self.data[closest_lower[0]]['ListOrder'], self.data[self._settings['GroupName']]['ListOrder']
+            self._redraw_groups()
         
     def _group_down(self):
         print 'move group down'
-        list_order = self.data[self._settings['GroupName']]['ListOrder']
-        closest_higher = [None, float('inf')]
-        for k, v in self.data.iteritems():
-            if list_order < v['ListOrder'] < closest_higher[1]:
-                closest_higher = [k, v['ListOrder']]
-        if closest_higher[0] is not None:
-            self.data[self._settings['GroupName']]['ListOrder'], self.data[closest_higher[0]]['ListOrder'] = self.data[closest_higher[0]]['ListOrder'], self.data[self._settings['GroupName']]['ListOrder']
-        self._redraw_groups()
+        if self._settings['GroupName']:
+            list_order = self.data[self._settings['GroupName']]['ListOrder']
+            closest_higher = [None, float('inf')]
+            for k, v in self.data.iteritems():
+                if list_order < v['ListOrder'] < closest_higher[1]:
+                    closest_higher = [k, v['ListOrder']]
+            if closest_higher[0] is not None:
+                self.data[self._settings['GroupName']]['ListOrder'], self.data[closest_higher[0]]['ListOrder'] = self.data[closest_higher[0]]['ListOrder'], self.data[self._settings['GroupName']]['ListOrder']
+            self._redraw_groups()
     
     def _objects_select(self, _redraw=True):
         print 'select objects, update visibility'
@@ -642,21 +839,32 @@ class UserInterface(object):
         print 'update save visibility'
         changed = False
         
-        '''
+        if not self._settings['GroupName']:
+            return
+        
         #Check for new selection
+        '''
         if self._settings['GroupName'] and self._settings['GroupName'] in self.data:
             changed = self._settings['GroupObjects'] != self.data[self._settings['GroupName']]['ObjectSelection']
-        '''
+            print 56
+            '''
+        changed = self.data[self._settings['GroupName']] != self._original_data[self._settings['GroupName']]
         
+        test = []
         #Check for if empty objects have been removed
         if not changed:
+            test.append(1112)
             changed = sorted(self.data.iteritems(), key=lambda (x, y): y['ListOrder']) != sorted(self._original_data.iteritems(), key=lambda (x, y): y['ListOrder'])
         
+        if not changed:
+            test.append(34252)
+            changed = self.data[self._settings['GroupName']] != self._original_data[self._settings['GroupName']]
+        
+        if changed and test:
+            print test
         #Check for new order
         if not changed:
             changed = sorted(self.data.keys()) != sorted(self._original_data.keys())
-            if changed:
-                print 'maybe this'
 
         pm.button(self.inputs[pm.button]['ObjectSave'], edit=True, enable=changed)
     
@@ -732,7 +940,9 @@ class UserInterface(object):
             num_items = 0
             difference = False
         try:
-            difference = self._original_data[k]['ObjectSelection'] != self.data[k]['ObjectSelection']
+            difference = sorted(self._original_data[k]['ObjectSelection']) != sorted(self.data[k]['ObjectSelection'])
+            if not difference:
+                difference = self._original_data[k] != self.data[k]
         except KeyError:
             difference = True
         return '{a}{k} ({n})'.format(k=k, n=num_items if num_items else 'empty', a='*' if difference else '')
