@@ -4,6 +4,15 @@ import base64
 from string import ascii_letters, digits
 from collections import MutableMapping, defaultdict
 
+def get_defaultdict():
+    for k, v in globals().iteritems():
+        v = str(v)
+        if any(i in v for i in ("function defaultdict", "<type 'collections.defaultdict'>")):
+            return eval(k)
+        if "module 'collections'" in v:
+            return eval(k + '.defaultdict')
+    return 'invalid'
+
 def int_to_bin(x, padding=0):
     return ('{' + '0:0{}b'.format(padding) + '}').format(x)
 
@@ -16,12 +25,17 @@ def convert_to_bytes(x):
 
 def convert_from_bytes(x):
     return ''.join(int_to_bin(i, 8) for i in x)
-    
+
 class StoreData:
-    TYPES = [bool, int, str, dict, list, tuple, float, unicode, tuple, complex, type(None), set]
+    _dd = get_defaultdict()
+    TYPES = [bool, int, str, dict, list, tuple, float, unicode, tuple, complex, type(None), set, _dd, 'other']
+    #_dd = get_defaultdict()
+    #if _dd != 'invalid':
+    #    TYPES.append(_dd)
     _TYPES = {long: int} #Treat the key type as the value type
-    TYPE_LEN = int(math.ceil(math.log(len(TYPES), 2)))
+    TYPE_LEN = int(math.ceil(math.log(len(TYPES) + 4, 2)))
     LOC = 'C:/Users/Peter/AppData/Roaming/IndexDataTest'
+    #need to fix float('inf') and defaultdict
     
     def save(self, x):
         data = base64.b64encode(convert_to_bytes(self._encode_value(x)))
@@ -36,10 +50,16 @@ class StoreData:
         if item_type in self._TYPES:
             item_type = self._TYPES[item_type]
         
-        try:
-            type_id = self.TYPES.index(item_type)
-        except ValueError:
-            raise ValueError("{} is not supported".format(item_type))
+        if item_type not in self.TYPES:
+            print "Warning: {} is not offically supported".format(item_type)
+            item_type = 'other'
+            x = str(x)
+            try:
+                eval(x)
+            except SyntaxError:
+                raise ValueError('unable to decode {} from string')
+        
+        type_id = self.TYPES.index(item_type)
         encoded_string = int_to_bin(type_id, self.TYPE_LEN)
         
         #Get the length of the input
@@ -50,11 +70,11 @@ class StoreData:
         elif item_type == type(None):
             return encoded_string + '10'
 
-        if item_type in (int, str, unicode):
+        if item_type in (int, str, unicode, 'other'):
             if item_type == int:
                 item_bin = int_to_bin(x).replace('-', '')
                 
-            elif item_type in (str, unicode):
+            elif item_type in (str, unicode, 'other'):
                 item_bin = ''.join(int_to_bin(ord(i), 8) for i in x)
                 
             item_len = len(item_bin)
@@ -65,6 +85,9 @@ class StoreData:
         
         elif item_type in (list, tuple, dict, set):
             num_bytes_int = len(x)
+       
+        elif item_type == self._dd:
+            num_bytes_int = len(x) + 1
             
         #Convert input length into number of bytes
         num_bytes_bin = int_to_bin(num_bytes_int)
@@ -78,7 +101,7 @@ class StoreData:
         encoded_string += num_bytes_bin
         
         #Convert input to bytes
-        if item_type in (int, str):
+        if item_type in (int, str, unicode, 'other'):
             
             if item_type == int:
                 encoded_string += '0' if x > 0 else '1'
@@ -103,13 +126,20 @@ class StoreData:
             for i in x:
                 encoded_string += self._encode_value(i)
                 
+        elif item_type == self._dd:
+            dd_type = type(defaultdict(_MovementInfo).default_factory())
+            dd_type = str(dd_type).replace("<class '__main__.", '').replace("'>", '')
+            encoded_string += self._encode_value(str(dd_type))
+            for k, v in x.iteritems():
+                encoded_string += self._encode_value(k)
+                encoded_string += self._encode_value(v)
+            
         elif item_type == dict:
             for k, v in x.iteritems():
                 encoded_string += self._encode_value(k)
                 encoded_string += self._encode_value(v)
-        
+                
         return encoded_string
-
 
     def _decode_value(self, x, start=0):
         
@@ -131,7 +161,7 @@ class StoreData:
         num_bytes = int(x[start_offset:end_offset], 2)
         
         #Decode the rest
-        if item_type in (int, str, unicode):
+        if item_type in (int, str, unicode, 'other'):
             start_offset = end_offset
             
             if item_type == int:
@@ -140,12 +170,17 @@ class StoreData:
             
             end_offset = start_offset + num_bytes * 8
             data = x[start_offset:end_offset]
-        
+            
             if item_type == int:
                 data = int(data, 2) * (-1 if is_negative else 1)
                 
-            elif item_type in (str, unicode):
+            elif item_type in (str, unicode, 'other'):
                 data = ''.join(chr(int(data[i:i + 8], 2)) for i in range(0, len(data), 8))
+                
+                if item_type == 'other':
+                    data = eval(data)
+                    #type(defaultdict(_MovementInfo).default_factory())
+                    
         
         elif item_type in (list, tuple, set):
             data = []
@@ -164,6 +199,17 @@ class StoreData:
                 v, end_offset = self._decode_value(x, start=end_offset)
                 data[k] = v
         
+        elif item_type == self._dd:
+            default_type, end_offset = self._decode_value(x, start=end_offset)
+            print default_type
+            eval(default_type)
+            data = self._dd(eval(default_type))
+            for i in range(num_bytes - 1):
+                k, end_offset = self._decode_value(x, start=end_offset)
+                v, end_offset = self._decode_value(x, start=end_offset)
+                print k, v
+                data[k] = v
+                
         elif item_type == float:
             data = []
             is_negative = int(x[end_offset])
@@ -183,7 +229,6 @@ class StoreData:
         
         elif item_type == bool:
             end_offset = start_offset + 1
-            #print x[start_offset:]
             data = bool(int(x[start_offset:end_offset]))
         
         elif item_type == type(None):
@@ -303,7 +348,7 @@ class _MovementInfo(object):
         self.visibility = visibility
     
     def __repr__(self):
-        return '{x.__class__.__name__}(location={x.location}, rotation={x.rotation}, scale={x.scale}, visibility={x.visibility}'.format(x=self)
+        return '{x.__class__.__name__}(location={x.location}, rotation={x.rotation}, scale={x.scale}, visibility={x.visibility})'.format(x=self)
 
 
 def load_data(attempt=0):
@@ -341,7 +386,15 @@ class SetGroup(_MovementInfo):
         self.distance = distance
         self.random = random
         
+        
         self.frame = defaultdict(_MovementInfo)
+        self.frame[0]
+        self.frame[10]
+        
+        '''
+        self.frame = {0: _MovementInfo(),
+                      10: _MovementInfo()}
+                      '''
         self.list_order = list_order
     
     def __repr__(self):
@@ -365,7 +418,8 @@ class SetGroup(_MovementInfo):
                                 'BounceDistance': self.bounce,
                                 'RandomOffset': self.random,
                                 'Axis': (False, False, False),
-                                'ListOrder': self.list_order} #need to fix float('inf')
+                                'ListOrder': self.list_order,
+                                'Frames': self.frame}
         pm.fileInfo['AssemblyScript'] = StoreData().save(self.data)
 
     def load(self):
@@ -513,7 +567,8 @@ class UserInterface(object):
                         with pm.frameLayout(label='Location', collapsable=True, collapse=False) as self.inputs[pm.frameLayout]['Location']:
                             with pm.tabLayout(tabsVisible=False):
                                 with pm.rowColumnLayout(numberOfColumns=1):
-                                    with pm.rowColumnLayout(numberOfColumns=5):             
+                                    pm.checkBox(label='Disable')
+                                    with pm.rowColumnLayout(numberOfColumns=5):
                            
                                         pm.text(label='Coordinates', align='right')
                                         pm.text(label='')
@@ -649,6 +704,10 @@ class UserInterface(object):
     def _group_select_new(self):
         try:
             self._settings['GroupName'] = pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], query=True, selectItem=True)[0].split(' (')[0].replace('*', '')
+            if self._settings['GroupName'] not in self.data:
+                self._settings['GroupName'] = None
+                raise IndexError()
+            
         except IndexError:
             self._settings['GroupName'] = None
             pm.textField(self.inputs[pm.textField]['GroupName'], edit=True, text='no selection', enable=False)
@@ -664,6 +723,7 @@ class UserInterface(object):
             pm.checkBox(self.inputs[pm.checkBox]['OriginX'], edit=True, value=False, enable=False)
             pm.checkBox(self.inputs[pm.checkBox]['OriginY'], edit=True, value=False, enable=False)
             pm.checkBox(self.inputs[pm.checkBox]['OriginZ'], edit=True, value=False, enable=False)
+            pm.textScrollList(self.inputs[pm.textScrollList]['FrameSelection'], edit=True, enable=False, removeAll=True)
         else:
             print 'changed group to', self._settings['GroupName']
             
@@ -681,6 +741,8 @@ class UserInterface(object):
             pm.checkBox(self.inputs[pm.checkBox]['OriginX'], edit=True, value=self.data[self._settings['GroupName']]['Axis'][0], enable=True)
             pm.checkBox(self.inputs[pm.checkBox]['OriginY'], edit=True, value=self.data[self._settings['GroupName']]['Axis'][1], enable=True)
             pm.checkBox(self.inputs[pm.checkBox]['OriginZ'], edit=True, value=self.data[self._settings['GroupName']]['Axis'][2], enable=True)
+            
+            pm.textScrollList(self.inputs[pm.textScrollList]['FrameSelection'], edit=True, enable=True, removeAll=True, append=sorted(self.data[self._settings['GroupName']]['Frames'].keys()))
             
         self._redraw_selection()
         self._objects_select(_redraw=False)
@@ -783,12 +845,6 @@ class UserInterface(object):
                 if v['ListOrder'] > current_index:
                     self.data[k]['ListOrder'] -= 1
             del self.data[self._settings['GroupName']]
-            '''
-            try:
-                del self._original_data[self._settings['GroupName']]
-            except KeyError:
-                pass
-                '''
             try:
                 self._settings['GroupName'] = [k for k, v in self.data.iteritems() if v['ListOrder'] == max(0, current_index - 1)][0]
             except IndexError:
@@ -839,32 +895,22 @@ class UserInterface(object):
         print 'update save visibility'
         changed = False
         
-        if not self._settings['GroupName']:
-            return
         
         #Check for new selection
-        '''
-        if self._settings['GroupName'] and self._settings['GroupName'] in self.data:
-            changed = self._settings['GroupObjects'] != self.data[self._settings['GroupName']]['ObjectSelection']
-            print 56
-            '''
-        changed = self.data[self._settings['GroupName']] != self._original_data[self._settings['GroupName']]
+        try:
+            changed = self.data[self._settings['GroupName']] != self._original_data[self._settings['GroupName']]
+        except KeyError:
+            changed = False
         
-        test = []
-        #Check for if empty objects have been removed
         if not changed:
-            test.append(1112)
             changed = sorted(self.data.iteritems(), key=lambda (x, y): y['ListOrder']) != sorted(self._original_data.iteritems(), key=lambda (x, y): y['ListOrder'])
         
-        if not changed:
-            test.append(34252)
-            changed = self.data[self._settings['GroupName']] != self._original_data[self._settings['GroupName']]
         
-        if changed and test:
-            print test
-        #Check for new order
+        #Check for if empty groups were removed
+        '''
         if not changed:
             changed = sorted(self.data.keys()) != sorted(self._original_data.keys())
+            '''
 
         pm.button(self.inputs[pm.button]['ObjectSave'], edit=True, enable=changed)
     
@@ -877,6 +923,7 @@ class UserInterface(object):
         print 'save objects'
         #self.data[self._settings['GroupName']]['ObjectSelection'] = set(self._settings['GroupObjects'])
         self.save()
+        self._redraw_selection()
         self._redraw_groups()
     
     def _objects_hide(self):
