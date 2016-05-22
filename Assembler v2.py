@@ -51,7 +51,7 @@ class StoreData:
             item_type = self._TYPES[item_type]
         
         if item_type not in self.TYPES:
-            print "Warning: {} is not offically supported".format(item_type)
+            #print "Warning: {} is not offically supported".format(item_type)
             item_type = 'other'
             x = str(x)
             try:
@@ -114,7 +114,7 @@ class StoreData:
             
         elif item_type == float:
             x_split = str(x).split('.')
-            encoded_string += '0' if x > 0 else '1'
+            encoded_string += '0' if x >= 0 else '1'
             encoded_string += self._encode_value(int(x_split[0]))
             encoded_string += self._encode_value(x_split[1])
         
@@ -201,13 +201,16 @@ class StoreData:
         
         elif item_type == self._dd:
             default_type, end_offset = self._decode_value(x, start=end_offset)
-            print default_type
-            eval(default_type)
-            data = self._dd(eval(default_type))
+            #print default_type
+            #eval(default_type)
+            try:
+                data = self._dd(eval(default_type))
+            except SyntaxError:
+                raise ValueError("an unknown variable type was encoded, can't decode")
             for i in range(num_bytes - 1):
                 k, end_offset = self._decode_value(x, start=end_offset)
                 v, end_offset = self._decode_value(x, start=end_offset)
-                print k, v
+                #print k, v
                 data[k] = v
                 
         elif item_type == float:
@@ -340,6 +343,7 @@ class StoreData:
             data, offset = self._decode_file(f)
         return data
 
+
 class _MovementInfo(object):
     def __init__(self, location=None, rotation=None, scale=None, visibility=None):
         self.location = location
@@ -349,6 +353,11 @@ class _MovementInfo(object):
     
     def __repr__(self):
         return '{x.__class__.__name__}(location={x.location}, rotation={x.rotation}, scale={x.scale}, visibility={x.visibility})'.format(x=self)
+    
+    def __eq__(self, other):
+        if type(other) != _MovementInfo:
+            return False
+        return self.location == other.location and self.rotation == other.rotation and self.scale == other.scale and self.visibility == other.visibility
 
 
 def load_data(attempt=0):
@@ -388,8 +397,10 @@ class SetGroup(_MovementInfo):
         
         
         self.frame = defaultdict(_MovementInfo)
-        self.frame[0]
-        self.frame[10]
+        self.frame[0.0]
+        self.frame[5.0]
+        self.frame[50.0]
+        self.frame[10.0]
         
         '''
         self.frame = {0: _MovementInfo(),
@@ -432,7 +443,9 @@ class UserInterface(object):
     def __init__(self):
         self._settings = {'GroupObjects': set(),
                           'GroupName': None,
-                          'HideSelected': True
+                          'HideSelected': True,
+                          'CurrentFrame': None,
+                          'LastFrameSelection': {},
                           }
         self.inputs = defaultdict(dict)
         self.reload()
@@ -544,17 +557,13 @@ class UserInterface(object):
                         pm.text(label='Frame Selection', align='right')
                         
                         pm.text(label='')
-                        self.inputs[pm.textScrollList]['FrameSelection'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100)
+                        self.inputs[pm.textScrollList]['FrameSelection'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100, selectCommand=pm.Callback(self._frame_select_new))
                         pm.text(label='')
                         pm.text(label='')
-                        with pm.rowColumnLayout(numberOfColumns=7):
-                            self.inputs[pm.button]['FrameAdd'] = pm.button(label='+')
+                        with pm.rowColumnLayout(numberOfColumns=3):
+                            self.inputs[pm.button]['FrameAdd'] = pm.button(label='+', command=pm.Callback(self._frame_add))
                             pm.text(label='')
-                            self.inputs[pm.button]['FrameRemove'] = pm.button(label='-')
-                            pm.text(label='')
-                            self.inputs[pm.button]['FrameMoveUp'] = pm.button(label='^')
-                            pm.text(label='')
-                            self.inputs[pm.button]['FrameMoveDown'] = pm.button(label='v')
+                            self.inputs[pm.button]['FrameRemove'] = pm.button(label='-', command=pm.Callback(self._frame_remove))
 
                 pm.text(label='')
                     
@@ -563,7 +572,7 @@ class UserInterface(object):
                         with pm.rowColumnLayout(numberOfColumns=3):
                             pm.text(label='Frame', align='right')
                             pm.text(label='')
-                            self.inputs[pm.textField]['CurrentFrame'] = pm.textField(text='error')
+                            self.inputs[pm.floatSliderGrp]['CurrentFrame'] = pm.floatSliderGrp(field=True, value=0, fieldMinValue=0, fieldMaxValue=float('inf'), precision=2, changeCommand=pm.Callback(self._frame_change))
                         with pm.frameLayout(label='Location', collapsable=True, collapse=False) as self.inputs[pm.frameLayout]['Location']:
                             with pm.tabLayout(tabsVisible=False):
                                 with pm.rowColumnLayout(numberOfColumns=1):
@@ -623,6 +632,7 @@ class UserInterface(object):
         print 'ui'
         self._objects_select()
         self._group_select_new()
+        self._frame_select_new()
         self.save()
         self._redraw_groups()
         pm.showWindow()
@@ -631,12 +641,98 @@ class UserInterface(object):
         if original:
             pm.fileInfo['AssemblyScript'] = StoreData().save(self._original_data)
         else:
-            for k, v in self.data.iteritems():
-                print k, v
+            #for k, v in self.data.iteritems():
+            #    print k, v
             pm.fileInfo['AssemblyScript'] = StoreData().save(self.data)
             self._group_unsaved = []
             self._visibility_save()
             self.reload()
+    
+    def _frame_get_name(self, frame):
+        
+        frame_name = 'Frame {}'.format(frame)
+        if self._settings['CurrentFrame'] == min(self.data[self._settings['GroupName']]['Frames'].keys()):
+            frame_name += ' (start)'
+        elif self._settings['CurrentFrame'] == max(self.data[self._settings['GroupName']]['Frames'].keys()):
+            frame_name += ' (end)'
+        return frame_name
+    
+    def _frame_select(self, refresh=True):
+        
+        if refresh:
+            self._group_select_new()
+            
+        frame_name = self._frame_get_name(self._settings['CurrentFrame'])
+        pm.textScrollList(self.inputs[pm.textScrollList]['FrameSelection'], edit=True, selectItem=frame_name)
+        pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['CurrentFrame'], edit=True, value=self._settings['CurrentFrame'])
+        self._redraw_groups()
+    
+    def _frame_change(self):
+        print "set new frame"
+        new_frame = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['CurrentFrame'], query=True, value=True)
+        
+        if new_frame != self._settings['CurrentFrame']:
+            
+            while new_frame in self.data[self._settings['GroupName']]['Frames']:
+                new_frame += 0.1
+                
+            if self._settings['GroupName'] and self._settings['CurrentFrame'] is not None:
+            
+                self.data[self._settings['GroupName']]['Frames'][new_frame] = self.data[self._settings['GroupName']]['Frames'].pop(self._settings['CurrentFrame'])
+                
+                self._group_select_new()
+                self._settings['CurrentFrame'] = new_frame
+                self._frame_select(False)
+                    
+    def _frame_select_new(self, reset=True):
+        print 'select new frame'
+        if reset:
+            try:
+                current_frame = pm.textScrollList(self.inputs[pm.textScrollList]['FrameSelection'], query=True, selectItem=True)[0]
+            except IndexError:
+                self._settings['CurrentFrame'] = None
+            else:
+                self._settings['CurrentFrame'] = float(''.join(i for i in current_frame if i in digits or i == '.'))
+        
+        #Load previous selection
+        if self._settings['GroupName']:
+            if self._settings['CurrentFrame'] is not None:
+                self._settings['LastFrameSelection'][self._settings['GroupName']] = self._settings['CurrentFrame']
+                #self._frame_select(False)
+            
+            elif self._settings['GroupName'] in self._settings['LastFrameSelection']:
+                self._settings['CurrentFrame'] = self._settings['LastFrameSelection'][self._settings['GroupName']]
+                self._frame_select(False)
+        
+        enable = self._settings['CurrentFrame'] is not None and self._settings['CurrentFrame']
+        pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['CurrentFrame'], edit=True, enable=enable, value=self._settings['CurrentFrame'] or 0.0)
+    
+    def _frame_add(self):
+        print 'add frame'
+        if self._settings['GroupName']:
+            if self._settings['CurrentFrame'] is not None:
+                new_frame = self._settings['CurrentFrame'] + 1
+            else:
+                new_frame = max(self.data[self._settings['GroupName']]['Frames'].keys()) + 1
+            while new_frame in self.data[self._settings['GroupName']]['Frames']:
+                new_frame += 0.1
+            self.data[self._settings['GroupName']]['Frames'][new_frame]
+            self._settings['CurrentFrame'] = new_frame
+            self._settings['LastFrameSelection'][self._settings['GroupName']] = new_frame
+            self._frame_select()
+            
+
+    def _frame_remove(self):
+        print 'remove frame'
+        if self._settings['GroupName'] and self._settings['CurrentFrame'] is not None:
+            all_frames = sorted(self.data[self._settings['GroupName']]['Frames'].keys())
+            num_frames = len(all_frames)
+            closest_frame = all_frames[all_frames.index(self._settings['CurrentFrame']) - 1]
+            if self._settings['CurrentFrame'] and num_frames > 2:
+                del self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']]
+            self._settings['CurrentFrame'] = closest_frame
+            self._settings['LastFrameSelection'][self._settings['GroupName']] = closest_frame
+            self._frame_select()
     
     def _group_settings_save(self):
         print 'update group settings'
@@ -696,6 +792,9 @@ class UserInterface(object):
                     count += 1
                 new_name = '{}.{}'.format(new_name, count)
         
+            if self._settings['GroupName'] in self._settings['LastFrameSelection']:
+                self._settings['LastFrameSelection'][new_name] = self._settings['LastFrameSelection'].pop(self._settings['GroupName'])
+        
             self.data[new_name] = old_data
             self._settings['GroupName'] = new_name
             self._redraw_groups()
@@ -724,6 +823,9 @@ class UserInterface(object):
             pm.checkBox(self.inputs[pm.checkBox]['OriginY'], edit=True, value=False, enable=False)
             pm.checkBox(self.inputs[pm.checkBox]['OriginZ'], edit=True, value=False, enable=False)
             pm.textScrollList(self.inputs[pm.textScrollList]['FrameSelection'], edit=True, enable=False, removeAll=True)
+            pm.button(self.inputs[pm.button]['FrameAdd'], edit=True, enable=False)
+
+
         else:
             print 'changed group to', self._settings['GroupName']
             
@@ -734,7 +836,7 @@ class UserInterface(object):
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['BounceDistance'], edit=True, value=self.data[self._settings['GroupName']]['BounceDistance'], enable=True)
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], edit=True, value=self.data[self._settings['GroupName']]['FrameDistance'], enable=True)
             pm.button(self.inputs[pm.button]['OriginApply'], edit=True, label='Use Current Selection', enable=True)
-            origin = [i if i else 0.0 for i in self.data[self._settings['GroupName']]['ObjectOrigin']]
+            origin = self.data[self._settings['GroupName']]['ObjectOrigin']
             pm.textField(self.inputs[pm.textField]['OriginX'], edit=True, text=origin[0], enable=True)
             pm.textField(self.inputs[pm.textField]['OriginY'], edit=True, text=origin[1], enable=True)
             pm.textField(self.inputs[pm.textField]['OriginZ'], edit=True, text=origin[2], enable=True)
@@ -742,9 +844,15 @@ class UserInterface(object):
             pm.checkBox(self.inputs[pm.checkBox]['OriginY'], edit=True, value=self.data[self._settings['GroupName']]['Axis'][1], enable=True)
             pm.checkBox(self.inputs[pm.checkBox]['OriginZ'], edit=True, value=self.data[self._settings['GroupName']]['Axis'][2], enable=True)
             
-            pm.textScrollList(self.inputs[pm.textScrollList]['FrameSelection'], edit=True, enable=True, removeAll=True, append=sorted(self.data[self._settings['GroupName']]['Frames'].keys()))
+            frames = ['Frame {}'.format(i) for i in sorted(self.data[self._settings['GroupName']]['Frames'].keys())]
+            frames[0] += ' (start)'
+            frames[-1] += ' (end)'
+            pm.textScrollList(self.inputs[pm.textScrollList]['FrameSelection'], edit=True, enable=True, removeAll=True, append=frames)
+            pm.button(self.inputs[pm.button]['FrameAdd'], edit=True, enable=True)
+            self._settings['CurrentFrame'] = None
             
         self._redraw_selection()
+        self._frame_select_new(False)
         self._objects_select(_redraw=False)
     
     def _set_origin_location(self):
@@ -793,7 +901,7 @@ class UserInterface(object):
             if not len(v['ObjectSelection']):
                 self._settings['GroupName'] = k
                 self._group_delete()
-                print k, self.data.keys()
+                #print k, self.data.keys()
         for k in new_keys:
             if not len(v['ObjectSelection']):
                 self._settings['GroupName'] = k
@@ -839,7 +947,10 @@ class UserInterface(object):
             self._group_select_new()
     
     def _group_delete(self):
-        if self._settings['GroupName']:
+        if self._settings['GroupName'] not in self.data:
+            self._settings['GroupName'] = None
+        
+        else:
             current_index = self.data[self._settings['GroupName']]['ListOrder']
             for k, v in self.data.iteritems():
                 if v['ListOrder'] > current_index:
@@ -849,6 +960,7 @@ class UserInterface(object):
                 self._settings['GroupName'] = [k for k, v in self.data.iteritems() if v['ListOrder'] == max(0, current_index - 1)][0]
             except IndexError:
                 self._settings['GroupName'] = None
+        self._frame_select_new()
         
         
     def _group_up(self):
@@ -905,12 +1017,9 @@ class UserInterface(object):
         if not changed:
             changed = sorted(self.data.iteritems(), key=lambda (x, y): y['ListOrder']) != sorted(self._original_data.iteritems(), key=lambda (x, y): y['ListOrder'])
         
-        
         #Check for if empty groups were removed
-        '''
         if not changed:
             changed = sorted(self.data.keys()) != sorted(self._original_data.keys())
-            '''
 
         pm.button(self.inputs[pm.button]['ObjectSave'], edit=True, enable=changed)
     
@@ -992,7 +1101,15 @@ class UserInterface(object):
                 difference = self._original_data[k] != self.data[k]
         except KeyError:
             difference = True
-        return '{a}{k} ({n})'.format(k=k, n=num_items if num_items else 'empty', a='*' if difference else '')
+        all_frames = self.data[k]['Frames'].keys()
+        num_frames = max(all_frames) - min(all_frames)
+        return '{a}{k} ({n}, {f} keyframe{s1}, {l} frame{s2})'.format(k=k, 
+                                                                      n='{} object{}'.format(num_items, '' if num_items == 1 else 's') if num_items else 'empty', 
+                                                                      a='*' if difference else '', 
+                                                                      l=num_frames, 
+                                                                      f=len(all_frames), 
+                                                                      s1='' if len(all_frames) == 1 else 's',
+                                                                      s2='' if num_frames == 1 else 's')
     
     def _selection_clean(self, group):
         """Remove any items not in the scene."""
