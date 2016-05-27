@@ -3,6 +3,7 @@ import math
 import base64
 from string import ascii_letters, digits
 from collections import MutableMapping, defaultdict
+import pymel.core as pm
 
 def get_defaultdict():
     for k, v in globals().iteritems():
@@ -357,7 +358,7 @@ class _MovementInfo(object):
     def __eq__(self, other):
         if type(other) != _MovementInfo:
             return False
-        return self.location == other.location and self.rotation == other.rotation and self.scale == other.scale and self.visibility == other.visibility
+        return (self.location == other.location and self.rotation == other.rotation and self.scale == other.scale and self.visibility == other.visibility)
 
 
 def load_data(attempt=0):
@@ -477,6 +478,7 @@ class UserInterface(object):
             pm.deleteUI(self.name, window=True)
 
         win = pm.window(self.name, title=self.name, sizeable=True, resizeToFitChildren=True)
+        pm.scriptJob(event=('SelectionChanged', self.test), parent=win)
 
         with pm.rowColumnLayout(numberOfColumns=1):
             with pm.rowColumnLayout(numberOfColumns=5):
@@ -576,36 +578,43 @@ class UserInterface(object):
                         with pm.frameLayout(label='Location', collapsable=True, collapse=False) as self.inputs[pm.frameLayout]['Location']:
                             with pm.tabLayout(tabsVisible=False):
                                 with pm.rowColumnLayout(numberOfColumns=1):
-                                    pm.checkBox(label='Disable')
-                                    with pm.rowColumnLayout(numberOfColumns=5):
+                                    self.inputs[pm.checkBox]['LocationDisable'] = pm.checkBox(label='Disable', value=True, changeCommand=pm.Callback(self._frame_location_disable))
+                                    with pm.rowColumnLayout(numberOfColumns=7):
                            
                                         pm.text(label='Coordinates', align='right')
                                         pm.text(label='')
                                         pm.text(label='min', align='center')
-                                        
                                         pm.text(label='')
                                         pm.text(label='max', align='center')
+                                        pm.text(label='')
+                                        pm.text(label='join', align='center')
                                         pm.text(label='x', align='right')
                                         pm.text(label='')
-                                        self.inputs[pm.textField]['test'] = pm.textField(text='error')
+                                        self.inputs[pm.textField]['FrameLocXMin'] = pm.textField(text='error')
                                         pm.text(label='')
-                                        self.inputs[pm.textField]['test'] = pm.textField(text='error')
+                                        self.inputs[pm.textField]['FrameLocXMax'] = pm.textField(text='error')
+                                        pm.text(label='')
+                                        self.inputs[pm.checkBox]['FrameLocXJoin'] = pm.checkBox(label='', value=True)
                                         pm.text(label='y', align='right')
                                         pm.text(label='')
-                                        self.inputs[pm.textField]['test'] = pm.textField(text='error')
+                                        self.inputs[pm.textField]['FrameLocYMin'] = pm.textField(text='error')
                                         pm.text(label='')
-                                        self.inputs[pm.textField]['test'] = pm.textField(text='error')
+                                        self.inputs[pm.textField]['FrameLocYMax'] = pm.textField(text='error')
+                                        pm.text(label='')
+                                        self.inputs[pm.checkBox]['FrameLocYJoin'] = pm.checkBox(label='', value=True)
                                         pm.text(label='z', align='right')
                                         pm.text(label='')
-                                        self.inputs[pm.textField]['test'] = pm.textField(text='error')
+                                        self.inputs[pm.textField]['FrameLocZMin'] = pm.textField(text='error')
                                         pm.text(label='')
-                                        self.inputs[pm.textField]['test'] = pm.textField(text='error')
+                                        self.inputs[pm.textField]['FrameLocZMax'] = pm.textField(text='error')
+                                        pm.text(label='')
+                                        self.inputs[pm.checkBox]['FrameLocZJoin'] = pm.checkBox(label='', value=True)
                                         
-                                    with pm.rowColumnLayout(numberOfColumns=5):                 
+                                    with pm.rowColumnLayout(numberOfColumns=5):
                                         pm.radioCollection()
                                         pm.radioButton(label='Absolute')
                                         with pm.rowColumnLayout(numberOfColumns=2): 
-                                            pm.radioButton(label='Relative to')
+                                            pm.radioButton(label='Relative to', select=True)
                                             pm.optionMenu(label='')
                                             pm.menuItem(label='Current Location')
                                             frames = ['frame1', 'frame2', 'frame3']
@@ -635,6 +644,7 @@ class UserInterface(object):
         self._frame_select_new()
         self.save()
         self._redraw_groups()
+        self._frame_select_new()
         pm.showWindow()
         
     def save(self, original=False):
@@ -648,6 +658,33 @@ class UserInterface(object):
             self._visibility_save()
             self.reload()
     
+    def _frame_location_disable(self):
+        print 'toggle frame disable'
+        should_disable = pm.checkBox(self.inputs[pm.checkBox]['LocationDisable'], query=True, value=True)
+        
+        if self._settings['GroupName'] is not None:
+            if self.data[self._settings['GroupName']]['Frames'] and max(self.data[self._settings['GroupName']]['Frames'].keys()) == self._settings['CurrentFrame']:
+                should_disable = True
+                pm.checkBox(self.inputs[pm.checkBox]['LocationDisable'], edit=True, enable=False)
+            
+        for i in 'FrameLocXMin FrameLocXMax FrameLocYMin FrameLocYMax FrameLocZMin FrameLocZMax'.split():
+            
+            if should_disable:
+                pm.textField(self.inputs[pm.textField][i], edit=True, enable=False)
+            else:
+                pm.textField(self.inputs[pm.textField][i], edit=True, enable=True)
+                
+        if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
+            
+            if should_disable:
+                self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location = None
+                
+            else:
+                self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location = ((0.0, 0.0), (0.0, 0.0), (0.0, 0.0))
+    
+        self._redraw_groups()
+        self._visibility_save()
+        
     def _frame_get_name(self, frame):
         
         frame_name = 'Frame {}'.format(frame)
@@ -658,7 +695,7 @@ class UserInterface(object):
         return frame_name
     
     def _frame_select(self, refresh=True):
-        
+        print 'frame select'
         if refresh:
             self._group_select_new()
             
@@ -674,28 +711,29 @@ class UserInterface(object):
         if new_frame != self._settings['CurrentFrame']:
             
             while new_frame in self.data[self._settings['GroupName']]['Frames']:
-                new_frame += 0.1
+                new_frame += 1
                 
             if self._settings['GroupName'] and self._settings['CurrentFrame'] is not None:
-            
                 self.data[self._settings['GroupName']]['Frames'][new_frame] = self.data[self._settings['GroupName']]['Frames'].pop(self._settings['CurrentFrame'])
-                
-                self._group_select_new()
-                self._settings['CurrentFrame'] = new_frame
-                self._frame_select(False)
+       
+        self._settings['CurrentFrame'] = new_frame
+        self._settings['LastFrameSelection'][self._settings['GroupName']] = new_frame
+        self._group_select_new()
+        self._frame_select(False)
                     
     def _frame_select_new(self, reset=True):
         print 'select new frame'
         if reset:
             try:
                 current_frame = pm.textScrollList(self.inputs[pm.textScrollList]['FrameSelection'], query=True, selectItem=True)[0]
+                
             except IndexError:
                 self._settings['CurrentFrame'] = None
             else:
                 self._settings['CurrentFrame'] = float(''.join(i for i in current_frame if i in digits or i == '.'))
         
         #Load previous selection
-        if self._settings['GroupName']:
+        if self._settings['GroupName'] is not None:
             if self._settings['CurrentFrame'] is not None:
                 self._settings['LastFrameSelection'][self._settings['GroupName']] = self._settings['CurrentFrame']
                 #self._frame_select(False)
@@ -704,18 +742,43 @@ class UserInterface(object):
                 self._settings['CurrentFrame'] = self._settings['LastFrameSelection'][self._settings['GroupName']]
                 self._frame_select(False)
         
-        enable = self._settings['CurrentFrame'] is not None and self._settings['CurrentFrame']
-        pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['CurrentFrame'], edit=True, enable=enable, value=self._settings['CurrentFrame'] or 0.0)
+        enable = self._settings['CurrentFrame'] is not None
+        enable_keyframe = enable and self._settings['CurrentFrame']
+        #enable_other = enable and self._settings['CurrentFrame'] != max(self.data[self._settings['GroupName']]['Frames'].keys())
+        
+        pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['CurrentFrame'], edit=True, enable=enable_keyframe, value=self._settings['CurrentFrame'] or 0.0)
+        pm.checkBox(self.inputs[pm.checkBox]['LocationDisable'], edit=True, enable=enable)
+        
+        if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
+            frame_data = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']]
+            location = frame_data.location
+        else:
+            location = None
+            
+        pm.checkBox(self.inputs[pm.checkBox]['LocationDisable'], edit=True, value=location is None)
+        #pm.frameLayout(self.inputs[pm.frameLayout]['Location'], edit=True, collapse=location is None)
+        
+        if location is None:
+            location = ((0.0, 0.0), (0.0, 0.0), (0.0, 0.0))
+        
+        self._frame_location_disable()
+        pm.textField(self.inputs[pm.textField]['FrameLocXMin'], edit=True, text=location[0][0])
+        pm.textField(self.inputs[pm.textField]['FrameLocXMax'], edit=True, text=location[0][1])
+        pm.textField(self.inputs[pm.textField]['FrameLocYMin'], edit=True, text=location[1][0])
+        pm.textField(self.inputs[pm.textField]['FrameLocYMax'], edit=True, text=location[1][1])
+        pm.textField(self.inputs[pm.textField]['FrameLocZMin'], edit=True, text=location[2][0])
+        pm.textField(self.inputs[pm.textField]['FrameLocZMax'], edit=True, text=location[2][1])
+        
     
     def _frame_add(self):
         print 'add frame'
-        if self._settings['GroupName']:
+        if self._settings['GroupName'] is not None:
             if self._settings['CurrentFrame'] is not None:
                 new_frame = self._settings['CurrentFrame'] + 1
             else:
                 new_frame = max(self.data[self._settings['GroupName']]['Frames'].keys()) + 1
             while new_frame in self.data[self._settings['GroupName']]['Frames']:
-                new_frame += 0.1
+                new_frame += 1
             self.data[self._settings['GroupName']]['Frames'][new_frame]
             self._settings['CurrentFrame'] = new_frame
             self._settings['LastFrameSelection'][self._settings['GroupName']] = new_frame
@@ -724,7 +787,7 @@ class UserInterface(object):
 
     def _frame_remove(self):
         print 'remove frame'
-        if self._settings['GroupName'] and self._settings['CurrentFrame'] is not None:
+        if self._settings['GroupName'] and self._settings['CurrentFrame']:
             all_frames = sorted(self.data[self._settings['GroupName']]['Frames'].keys())
             num_frames = len(all_frames)
             closest_frame = all_frames[all_frames.index(self._settings['CurrentFrame']) - 1]
@@ -736,7 +799,7 @@ class UserInterface(object):
     
     def _group_settings_save(self):
         print 'update group settings'
-        if self._settings['GroupName']:
+        if self._settings['GroupName'] is not None:
             self.data[self._settings['GroupName']]['FrameOffset'] = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['FrameOffset'], query=True, value=True)
             self.data[self._settings['GroupName']]['RandomOffset'] = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['RandomOffset'], query=True, value=True)
             self.data[self._settings['GroupName']]['BounceDistance'] = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['BounceDistance'], query=True, value=True)
@@ -769,7 +832,7 @@ class UserInterface(object):
     
     def _group_name_save(self):
         print 'save name'
-        if self._settings['GroupName']:
+        if self._settings['GroupName'] is not None:
             new_name = str(pm.textField(self.inputs[pm.textField]['GroupName'], query=True, text=True))
             new_name = ''.join(i for i in new_name if i in ascii_letters + digits + '.-_ "~')
             
@@ -832,7 +895,7 @@ class UserInterface(object):
             pm.textField(self.inputs[pm.textField]['GroupName'], edit=True, text=self._settings['GroupName'], enable=True)
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], edit=True, value=self.data[self._settings['GroupName']]['FrameDistance'], enable=True)
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['FrameOffset'], edit=True, value=self.data[self._settings['GroupName']]['FrameOffset'], enable=True)
-            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['RandomOffset'], edit=True, value=self.data[self._settings['GroupName']]['FrameOffset'], enable=True)
+            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['RandomOffset'], edit=True, value=self.data[self._settings['GroupName']]['RandomOffset'], enable=True)
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['BounceDistance'], edit=True, value=self.data[self._settings['GroupName']]['BounceDistance'], enable=True)
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], edit=True, value=self.data[self._settings['GroupName']]['FrameDistance'], enable=True)
             pm.button(self.inputs[pm.button]['OriginApply'], edit=True, label='Use Current Selection', enable=True)
@@ -850,7 +913,7 @@ class UserInterface(object):
             pm.textScrollList(self.inputs[pm.textScrollList]['FrameSelection'], edit=True, enable=True, removeAll=True, append=frames)
             pm.button(self.inputs[pm.button]['FrameAdd'], edit=True, enable=True)
             self._settings['CurrentFrame'] = None
-            
+        
         self._redraw_selection()
         self._frame_select_new(False)
         self._objects_select(_redraw=False)
@@ -922,7 +985,7 @@ class UserInterface(object):
     def _group_add(self):
         print 'add group'
         current_index = len(self.data) - 1
-        if self._settings['GroupName']:
+        if self._settings['GroupName'] is not None:
             current_index = self.data[self._settings['GroupName']]['ListOrder']
         for k, v in self.data.iteritems():
             if v['ListOrder'] > current_index:
@@ -941,7 +1004,7 @@ class UserInterface(object):
     def _group_remove(self):
         print 'remove group'
         self._group_delete()
-        if self._settings['GroupName']:
+        if self._settings['GroupName'] is not None:
             self._redraw_selection()
             self._redraw_groups()
             self._group_select_new()
@@ -965,7 +1028,7 @@ class UserInterface(object):
         
     def _group_up(self):
         print 'move group up'
-        if self._settings['GroupName']:
+        if self._settings['GroupName'] is not None:
             list_order = self.data[self._settings['GroupName']]['ListOrder']
             closest_lower = [None, -float('inf')]
             for k, v in self.data.iteritems():
@@ -977,7 +1040,7 @@ class UserInterface(object):
         
     def _group_down(self):
         print 'move group down'
-        if self._settings['GroupName']:
+        if self._settings['GroupName'] is not None:
             list_order = self.data[self._settings['GroupName']]['ListOrder']
             closest_higher = [None, float('inf')]
             for k, v in self.data.iteritems():
@@ -1020,12 +1083,14 @@ class UserInterface(object):
         #Check for if empty groups were removed
         if not changed:
             changed = sorted(self.data.keys()) != sorted(self._original_data.keys())
+            
 
         pm.button(self.inputs[pm.button]['ObjectSave'], edit=True, enable=changed)
     
     def _objects_refresh(self):
         print 'refresh objects'
-        self.reload()
+        #self.reload()
+        self.reload_objects()
         self._redraw_selection()
         
     def _save_all(self):
@@ -1052,7 +1117,7 @@ class UserInterface(object):
         else:
             self._selection_clean(self._settings['GroupName'])
             if self._settings['HideSelected']:
-                for k, v in self._original_data.iteritems():
+                for k, v in self.data.iteritems():
                     if k != self._settings['GroupName']:
                         object_list.difference_update(v['ObjectSelection'])
             object_list.update(selected_objects)
@@ -1085,7 +1150,7 @@ class UserInterface(object):
             group_names.append(self._group_name_format(k))
         
         pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], edit=True, append=group_names)
-        if self._settings['GroupName']:
+        if self._settings['GroupName'] is not None:
             pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], edit=True, selectItem=self._group_name_format(self._settings['GroupName']))
         self._objects_select(_redraw=False)
     
@@ -1099,6 +1164,9 @@ class UserInterface(object):
             difference = sorted(self._original_data[k]['ObjectSelection']) != sorted(self.data[k]['ObjectSelection'])
             if not difference:
                 difference = self._original_data[k] != self.data[k]
+            if not difference:
+                difference = self._original_data[k]['Frames'] != self.data[k]['Frames']
+                
         except KeyError:
             difference = True
         all_frames = self.data[k]['Frames'].keys()
@@ -1117,13 +1185,16 @@ class UserInterface(object):
         self.data[group]['ObjectSelection'] = set(i for i in self.data[group]['ObjectSelection'] if i in self.scene_objects)
         return len(self.data[group]['ObjectSelection']) == len(original_group)
     
+    
+    def test(self):
+        print 'callback test', self._settings['CurrentFrame']
+'''
+SelectionChanged - update last frame coordinates
+NameChanged - update any selections
+DagObjectCreated
+'''
+ui = UserInterface()
 
-'''
-a = SetGroup('test')
-a.frame[5].location = (5, 5)
-print a.frame[5].scale
-a.save()
-'''
 pm.fileInfo['AssemblyScript'] = StoreData().save({})
 a = SetGroup('test')
 a.selection=['pCube1', 'pCone1']
@@ -1131,4 +1202,4 @@ a.save()
 for i in range(2):
     a = SetGroup('test'+str(i))
     a.save()
-UserInterface().display()
+ui.display()
