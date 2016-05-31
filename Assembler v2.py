@@ -401,8 +401,6 @@ class SetGroup(_MovementInfo):
             raise TypeError('name of group must be provided')
         self.name = name
         
-        #super(SetGroup, self).__init__(location, rotation, scale, visibility)
-        
         if selection is None:
             self.selection = []
         else:
@@ -694,6 +692,52 @@ class UserInterface(object):
                                         pm.text(label='')
                                         pm.text(label='')
                                         pm.text(label='')
+                                        
+                                        
+                        with pm.frameLayout(label='Scale', collapsable=False, collapse=False) as self.inputs[pm.frameLayout]['Scale']:
+                            with pm.tabLayout(tabsVisible=False):
+                                with pm.rowColumnLayout(numberOfColumns=1):
+                                    self.inputs[pm.checkBox]['FrameScaleDisable'] = pm.checkBox(label='Disable', value=True, changeCommand=pm.Callback(self._frame_data_disable))
+                                    with pm.rowColumnLayout(numberOfColumns=7):
+                                        self.inputs[pm.text]['FrameScaleCoordinates'] = pm.text(label='Coordinates', align='right')
+                                        pm.text(label='')
+                                        self.inputs[pm.text]['FrameScaleMin'] = pm.text(label='min', align='center')
+                                        pm.text(label='')
+                                        self.inputs[pm.text]['FrameScaleMax'] = pm.text(label='max', align='center')
+                                        pm.text(label='')
+                                        self.inputs[pm.text]['FrameScaleJoin'] = pm.text(label='join', align='center')
+                                        self.inputs[pm.text]['FrameScaleX'] = pm.text(label='x', align='right')
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['FrameScaleXMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['FrameScaleXMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                        pm.text(label='')
+                                        self.inputs[pm.checkBox]['FrameScaleXJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                        self.inputs[pm.text]['FrameScaleY'] = pm.text(label='y', align='right')
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['FrameScaleYMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['FrameScaleYMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                        pm.text(label='')
+                                        self.inputs[pm.checkBox]['FrameScaleYJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                        self.inputs[pm.text]['FrameScaleZ'] = pm.text(label='z', align='right')
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['FrameScaleZMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['FrameScaleZMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                        pm.text(label='')
+                                        self.inputs[pm.checkBox]['FrameScaleZJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                                        
+                                    with pm.rowColumnLayout(numberOfColumns=5):
+                                        pm.radioCollection()
+                                        self.inputs[pm.radioButton]['FrameScaleAbsolute'] = pm.radioButton(label='Absolute', onCommand=pm.Callback(self._relative_frame_change_radio))
+                                        with pm.rowColumnLayout(numberOfColumns=2): 
+                                            self.inputs[pm.radioButton]['FrameScaleRelative'] = pm.radioButton(label='Relative to', select=True, onCommand=pm.Callback(self._relative_frame_change_radio))
+                                            self.inputs[pm.radioButton]['FrameScaleList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
+                                            pm.menuItem(label='Current Scale')
+                                        pm.text(label='')
+                                        pm.text(label='')
+                                        pm.text(label='')
                     
             with pm.rowColumnLayout(numberOfColumns=5):
                 button_width = 50
@@ -780,6 +824,11 @@ class UserInterface(object):
             if self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_absolute is not True:
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_absolute = selected_frame
             self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['RotationAbsolute'] = selected_frame
+            
+            selected_frame = self._frame_dropdown_format(pm.optionMenu(self.inputs[pm.radioButton]['FrameScaleList'], query=True, value=True), undo=True)
+            if self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_absolute is not True:
+                self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_absolute = selected_frame
+            self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['ScaleAbsolute'] = selected_frame
                 
     
     def _relative_frame_change_radio(self, _debug=0):
@@ -823,6 +872,24 @@ class UserInterface(object):
                 else:
                     old_rotation = None
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_absolute = old_rotation
+            
+            scale_is_absolute = pm.radioButton(self.inputs[pm.radioButton]['FrameScaleAbsolute'], query=True, select=True)
+            scale_is_relative = pm.radioButton(self.inputs[pm.radioButton]['FrameScaleRelative'], query=True, select=True)
+            
+            if scale_is_absolute:
+                old_scale = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_absolute
+                if old_scale is not True:
+                    self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['ScaleAbsolute'] = old_scale
+                
+                self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_absolute = True
+                
+            else:
+                pm.optionMenu(self.inputs[pm.radioButton]['FrameScaleList'], edit=True, enable=True)
+                if 'ScaleAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
+                    old_scale = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['ScaleAbsolute']
+                else:
+                    old_scale = None
+                self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_absolute = old_scale
                 
         self._frame_data_disable(_debug=_debug + 1)
         self._relative_frame_redraw(_debug=_debug + 1)
@@ -837,13 +904,16 @@ class UserInterface(object):
             stored_data = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']]
             loc = stored_data.location_absolute
             rot = stored_data.rotation_absolute
+            scale = stored_data.scale_absolute
         else:
             loc = None
             rot = None
+            scale = None
             
             
         stuff = {'Loc': (loc, 'LocationAbsolute', 'Current Location'),
-                 'Rot': (rot, 'RotationAbsolute', 'Current Rotation')}
+                 'Rot': (rot, 'RotationAbsolute', 'Current Rotation'),
+                 'Scale': (scale, 'ScaleAbsolute', 'Current Scale')}
         
         for i in stuff:
             
@@ -896,9 +966,11 @@ class UserInterface(object):
         
         loc_disable = pm.checkBox(self.inputs[pm.checkBox]['FrameLocDisable'], query=True, value=True)
         rot_disable = pm.checkBox(self.inputs[pm.checkBox]['FrameRotDisable'], query=True, value=True)
+        scale_disable = pm.checkBox(self.inputs[pm.checkBox]['FrameScaleDisable'], query=True, value=True)
         
         disable_items = {'Loc': loc_disable,
-                         'Rot': rot_disable}
+                         'Rot': rot_disable,
+                         'Scale': scale_disable}
         
         #Control the visibility
         for i in disable_items:
@@ -969,6 +1041,25 @@ class UserInterface(object):
                     rotation = (0.0, 0.0, 0.0)
                     
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_coordinates = rotation
+            
+            current_scale = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_coordinates
+            
+            #Send scale to temporary storage
+            if scale_disable:
+                if current_scale is not None:
+                    self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['Scale'] = current_scale
+                self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_coordinates = None
+            
+            #Load scale from temporary storage
+            elif current_scale is None:
+                try:
+                    scale = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']].pop('Scale')
+                    if scale is None:
+                        raise KeyError()
+                except KeyError:
+                    scale = (0.0, 0.0, 0.0)
+                    
+                self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_coordinates = scale
                 
         self._redraw_groups(_debug=_debug + 1)
         #self._visibility_save(_debug=_debug + 1)
@@ -983,8 +1074,8 @@ class UserInterface(object):
             
             old_loc = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates
             old_rot = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_coordinates
-            #old_scale = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_coordinates
-            #old_vis = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].visibility_coordinates
+            old_scale = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_coordinates
+            old_vis = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].visibility_coordinates
             
             old_stuff = {}
             if old_loc is not None:
@@ -995,6 +1086,10 @@ class UserInterface(object):
                 old_stuff['Rot'] = {'X': old_rot[0],
                                     'Y': old_rot[1],
                                     'Z': old_rot[2]}
+            if old_scale is not None:
+                old_stuff['Scale'] = {'X': old_scale[0],
+                                    'Y': old_scale[1],
+                                    'Z': old_scale[2]}
                                  
             results = defaultdict(list)
             for i in old_stuff:
@@ -1038,6 +1133,8 @@ class UserInterface(object):
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates = tuple(results['Loc'])
             if old_rot is not None:
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_coordinates = tuple(results['Rot'])
+            if old_scale is not None:
+                self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_coordinates = tuple(results['Scale'])
             
             self._frame_select_new(_debug=_debug + 1)
     
@@ -1049,7 +1146,7 @@ class UserInterface(object):
         self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Toggle joined options', indent=_debug)
         
         if self._settings['GroupName'] is not None:
-            for i in ('Loc', 'Rot'):
+            for i in ('Loc', 'Rot', 'Scale'):
                 name_base = 'Frame{}'.format(i)
                 override = pm.checkBox(self.inputs[pm.checkBox]['{}Disable'.format(name_base)], query=True, value=True)
                 for j in ('X', 'Y', 'Z'):
@@ -1105,6 +1202,11 @@ class UserInterface(object):
                 if 'RotationAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
                     self._settings['LastFrameData'][self._settings['GroupName']][new_frame]['RotationAbsolute'] = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']].pop('RotationAbsolute')
        
+                if 'Scale' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
+                    self._settings['LastFrameData'][self._settings['GroupName']][new_frame]['Scale'] = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']].pop('Scale')
+                if 'ScaleAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
+                    self._settings['LastFrameData'][self._settings['GroupName']][new_frame]['ScaleAbsolute'] = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']].pop('ScaleAbsolute')
+       
             #Update any relative values
             for frame in self.data[self._settings['GroupName']]['Frames']:
                 location_absolute = self.data[self._settings['GroupName']]['Frames'][frame].location_absolute
@@ -1116,9 +1218,14 @@ class UserInterface(object):
                 if rotation_absolute is not True and rotation_absolute is not None:
                     if rotation_absolute == self._settings['CurrentFrame']:
                         self.data[self._settings['GroupName']]['Frames'][frame].rotation_absolute = new_frame
+                        
+                scale_absolute = self.data[self._settings['GroupName']]['Frames'][frame].scale_absolute
+                if scale_absolute is not True and scale_absolute is not None:
+                    if scale_absolute == self._settings['CurrentFrame']:
+                        self.data[self._settings['GroupName']]['Frames'][frame].scale_absolute = new_frame
             
             #Update any relative temporary values
-            for i in ('Location', 'Rotation'):
+            for i in ('Location', 'Rotation', 'Scale'):
                 name_absolute = '{}Absolute'.format(i)
                 for frame in self._settings['LastFrameData'][self._settings['GroupName']]:
                     if name_absolute in self._settings['LastFrameData'][self._settings['GroupName']][frame]:
@@ -1159,7 +1266,7 @@ class UserInterface(object):
         enable = self._settings['CurrentFrame'] is not None
         enable_keyframe = enable and self._settings['CurrentFrame']
         pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['CurrentFrame'], edit=True, enable=enable_keyframe, value=self._settings['CurrentFrame'] or 0.0)
-        for i in ('Loc', 'Rot'):
+        for i in ('Loc', 'Rot', 'Scale'):
             name_start = 'Frame{}'.format(i)
             pm.checkBox(self.inputs[pm.checkBox]['{}Disable'.format(name_start)], edit=True, enable=enable)
         
@@ -1170,11 +1277,15 @@ class UserInterface(object):
             location_absolute = frame_data.location_absolute
             rotation = frame_data.rotation_coordinates
             rotation_absolute = frame_data.rotation_absolute
+            scale = frame_data.scale_coordinates
+            scale_absolute = frame_data.scale_absolute
         else:
             location = None
             location_absolute = None
             rotation = None
             rotation_absolute = None
+            scale = None
+            scale_absolute = None
             
         pm.checkBox(self.inputs[pm.checkBox]['FrameLocDisable'], edit=True, value=location is None)
         pm.checkBox(self.inputs[pm.checkBox]['FrameRotDisable'], edit=True, value=rotation is None)
@@ -1194,10 +1305,18 @@ class UserInterface(object):
                     raise KeyError()
             except KeyError:
                 rotation = (0.0, 0.0, 0.0)
+        if scale is None:
+            try:
+                scale = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['Scale']
+                if scale is None:
+                    raise KeyError()
+            except KeyError:
+                scale = (0.0, 0.0, 0.0)
         
         self._frame_data_disable(_debug=_debug + 1)
         stuff = {'Loc': (location, location_absolute),
-                 'Rot': (rotation, rotation_absolute)}
+                 'Rot': (rotation, rotation_absolute),
+                 'Scale': (scale, scale_absolute)}
                  
         for i in stuff:
             name_start = 'Frame{}'.format(i)
@@ -1256,9 +1375,13 @@ class UserInterface(object):
                 if rotation_absolute is not True and rotation_absolute is not None and rotation_absolute not in all_frames:
                     self.data[self._settings['GroupName']]['Frames'][frame].rotation_absolute = None
                     
+                scale_absolute = self.data[self._settings['GroupName']]['Frames'][frame].scale_absolute
+                if scale_absolute is not True and scale_absolute is not None and scale_absolute not in all_frames:
+                    self.data[self._settings['GroupName']]['Frames'][frame].scale_absolute = None
+                    
                     
             for frame in self._settings['LastFrameData'][self._settings['GroupName']]:
-                for i in ('Location', 'Rotation'):
+                for i in ('Location', 'Rotation', 'Scale'):
                     name = '{}Absolute'.format(i)
                     if name in self._settings['LastFrameData'][self._settings['GroupName']][frame]:
                         absolute_value = self._settings['LastFrameData'][self._settings['GroupName']][frame][name]
@@ -1360,7 +1483,7 @@ class UserInterface(object):
             pm.textScrollList(self.inputs[pm.textScrollList]['FrameSelection'], edit=True, enable=False, removeAll=True)
             pm.button(self.inputs[pm.button]['FrameAdd'], edit=True, enable=False)
             
-            for i in ('Loc', 'Rot'):
+            for i in ('Loc', 'Rot', 'Scale'):
                 name_start = 'Frame{}'.format(i)
                 for j in ('Coordinates', 'Min', 'Max', 'Join', 'X', 'Y', 'Z'):
                     pm.text(self.inputs[pm.text]['{}{}'.format(name_start, j)], edit=True, enable=False)
@@ -1387,7 +1510,8 @@ class UserInterface(object):
             if self._settings['CurrentFrame'] is not None:
                 stored_data = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']]
                 stuff = {'Loc': stored_data.location_absolute,
-                         'Rot': stored_data.rotation_absolute}
+                         'Rot': stored_data.rotation_absolute,
+                         'Scale': stored_data.scale_absolute}
                 for i in stuff:
                     name_start = 'Frame{}'.format(i)
                     try:
