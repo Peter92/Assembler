@@ -457,6 +457,13 @@ class UserInterface(object):
     name = 'Assembler'
     
     def __init__(self):
+        self._reset_settings()
+        self.inputs = defaultdict(dict)
+        self.reload()
+        self._group_new_count = 0
+        self._group_unsaved = []
+    
+    def _reset_settings(self):
         self._settings = {'GroupObjects': set(),
                           'GroupName': None,
                           'HideSelected': True,
@@ -465,18 +472,16 @@ class UserInterface(object):
                           'LastFrameData': defaultdict(lambda: defaultdict(dict)),
                           'ScriptJobs': []
                           }
-        self.inputs = defaultdict(dict)
-        self.reload()
-        self._group_new_count = 0
-        self._group_unsaved = []
     
-    def reload(self):
+    def reload(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Reload all', indent=_debug)
         self.data = load_data()
         self._original_data = load_data()
-        self.reload_objects()
+        self.reload_objects(_debug=_debug + 1)
     
-    def reload_objects(self):
+    def reload_objects(self, _debug=0):
         """Refresh the list of objects."""
+        self._debug_print(sys._getframe().f_code.co_name, 'Objects: Rebuild list', indent=_debug)
         
         #Get a list of all scene objects (without cameras)
         scene_objects = pm.ls(dag=True, exactType=pm.nodetypes.Transform)
@@ -487,9 +492,10 @@ class UserInterface(object):
                 pass
         self.scene_objects = set(map(str, scene_objects))
         
-    def display(self):
+    def display(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Draw user interface', indent=_debug)
         
-        self.reload()
+        self.reload(_debug=_debug + 1)
         
         if pm.window(self.name, exists=True):
             pm.deleteUI(self.name, window=True)
@@ -652,29 +658,66 @@ class UserInterface(object):
                 pm.text(label='')
                 self.inputs[pm.button]['ObjectSave'] = pm.button(label='Save All', command=pm.Callback(self._save_all))
                 pm.text(label='')
+                pm.text(label='')
+                pm.button(label='Print Info', command=pm.Callback(self.generate_animation))
+                pm.text(label='')
 
-        print 'ui'
-        self._objects_select()
-        self._group_select_new()
-        self._frame_select_new()
-        self.save()
-        self._redraw_groups()
-        self._frame_select_new()
-        self._relative_frame_redraw()
+        self._objects_select(_debug=_debug + 1)
+        self._group_select_new(_debug=_debug + 1)
+        self._frame_select_new(_debug=_debug + 1)
+        self.save(_debug=_debug + 1)
+        self._redraw_groups(_debug=_debug + 1)
+        self._frame_select_new(_debug=_debug + 1)
+        self._relative_frame_redraw(_debug=_debug + 1)
         pm.showWindow()
         
-    def save(self, original=False):
-        self._debug(sys._getframe().f_code.co_name, 'Save into scene')
+    def save(self, original=False, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Save into scene', indent=_debug)
         if original:
             pm.fileInfo['AssemblyScript'] = StoreData().save(self._original_data)
         else:
             pm.fileInfo['AssemblyScript'] = StoreData().save(self.data)
             self._group_unsaved = []
-            self._visibility_save()
-            self.reload()
+            self._visibility_save(_debug=_debug + 1)
+            self.reload(_debug=_debug + 1)
     
-    def _relative_frame_change_dropdown(self):
-        self._debug(sys._getframe().f_code.co_name, 'Keyframe: Dropdown change')
+    def generate_animation(self, _debug=0):
+        self._save_all(_debug=_debug + 1)
+        
+        spacing = '  '
+        
+        #print pm.fileInfo['AssemblyScript']
+        for frame, data in sorted(self.data.iteritems(), key=lambda (x, y): y['ListOrder']):
+            print 'Group: {}'.format(frame)
+            
+            print '{s}Frame Offset: {}'.format(data['FrameOffset'], s=spacing)
+            print '{s}Frame Distance: {}'.format(data['FrameDistance'], s=spacing)
+            print '{s}Random Offset: {}'.format(data['RandomOffset'], s=spacing)
+            print '{s}Object Origin: {}'.format(data['ObjectOrigin'], s=spacing)
+            print '{s}Animation Axis: {}'.format(data['Axis'], s=spacing)
+            print '{s}Bounce Distance: {}'.format(data['BounceDistance'], s=spacing)
+            print '{s}Keyframes:'.format(s=spacing)
+            for keyframe in sorted(data['Frames'].keys()):
+                print '{s}{s}{}:'.format(keyframe, s=spacing)
+                print '{s}{s}{s}Range: {} to {}'.format(keyframe + data['FrameOffset'] - data['RandomOffset'], keyframe + data['FrameOffset'] + data['RandomOffset'], s=spacing)
+                for k, v in {'Location': (data['Frames'][keyframe].location_coordinates, data['Frames'][keyframe].location_absolute),
+                             'Rotation': (data['Frames'][keyframe].rotation_coordinates, data['Frames'][keyframe].rotation_absolute),
+                             'Scale': (data['Frames'][keyframe].scale_coordinates, data['Frames'][keyframe].scale_absolute),
+                             'Visibility': (data['Frames'][keyframe].visibility_coordinates, data['Frames'][keyframe].visibility_absolute)}.iteritems():
+                    if v[0] is None:
+                        print '{s}{s}{s}{}: Disabled'.format(k, s=spacing)
+                    else:
+                        print '{s}{s}{s}{}:'.format(k, s=spacing)
+                        print '{s}{s}{s}{s}Settings: {}'.format(v[0], s=spacing)
+                        print '{s}{s}{s}{s}Absolute/Relative: {}'.format('absolute' if v[1] is True else 'relative' if v[1] is None else 'relative to {}'.format(v[1]), s=spacing)
+            
+            if data['ObjectSelection']:
+                print '{s}Selected Objects:'.format(s=spacing)
+                for i in sorted(data['ObjectSelection']):
+                    print '{s}{s}{}'.format(i, s=spacing)
+    
+    def _relative_frame_change_dropdown(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Dropdown change', indent=_debug)
         if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
             selected_frame = self._frame_dropdown_format(pm.optionMenu(self.inputs[pm.optionMenu]['FrameList'], query=True, value=True), undo=True)
             if self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute == True:
@@ -682,8 +725,8 @@ class UserInterface(object):
             else:
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute = selected_frame
     
-    def _relative_frame_change_radio(self):
-        self._debug(sys._getframe().f_code.co_name, 'Keyframe: Radio update')
+    def _relative_frame_change_radio(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Radio update', indent=_debug)
         
         location_is_absolute = pm.radioButton(self.inputs[pm.radioButton]['LocationAbsolute'], query=True, select=True)
         location_is_relative = pm.radioButton(self.inputs[pm.radioButton]['LocationRelative'], query=True, select=True)
@@ -706,10 +749,10 @@ class UserInterface(object):
                     old_location = None
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute = old_location
                 
-        self._relative_frame_redraw()
+        self._relative_frame_redraw(_debug=_debug + 1)
     
-    def _relative_frame_redraw(self):
-        self._debug(sys._getframe().f_code.co_name, 'Keyframe: Dropdown redraw')
+    def _relative_frame_redraw(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Dropdown redraw', indent=_debug)
         
         dropdown_options = pm.optionMenu(self.inputs[pm.optionMenu]['FrameList'], query=True, itemListLong=True)
         for i in dropdown_options[1:]:
@@ -734,6 +777,7 @@ class UserInterface(object):
                     old_location = self._frame_dropdown_format(old_location)
                     
                 pm.optionMenu(self.inputs[pm.optionMenu]['FrameList'], edit=True, enable=False, value=old_location)
+                
             else:
                 if location_absolute is None:
                     pm.optionMenu(self.inputs[pm.optionMenu]['FrameList'], edit=True, value='Current Location')
@@ -746,7 +790,7 @@ class UserInterface(object):
             pm.optionMenu(self.inputs[pm.optionMenu]['FrameList'], edit=True, enable=False, value='Current Location')
             
     
-    def _frame_dropdown_format(self, i, undo=False):
+    def _frame_dropdown_format(self, i, undo=False, _debug=0):
         """Format the name of the frames."""
         if undo:
             try:
@@ -758,9 +802,9 @@ class UserInterface(object):
                 i = int(i)
             return 'Frame {}'.format(i)
     
-    def _frame_location_disable(self):
+    def _frame_location_disable(self, _debug=0):
         """Turn on or off location for each frame."""
-        self._debug(sys._getframe().f_code.co_name, 'Keyframe: Disable location')
+        self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Disable location', indent=_debug)
         
         should_disable = pm.checkBox(self.inputs[pm.checkBox]['LocationDisable'], query=True, value=True)
         
@@ -805,14 +849,14 @@ class UserInterface(object):
                     
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates = location
     
-        self._redraw_groups()
-        #self._visibility_save()
-        self._frame_value_join()
+        self._redraw_groups(_debug=_debug + 1)
+        #self._visibility_save(_debug=_debug + 1)
+        #self._frame_value_join(_debug=_debug + 1)
     
-    def _frame_location_set(self):
+    def _frame_location_set(self, _debug=0):
         """Store the current values input into the frame location fields."""
         
-        self._debug(sys._getframe().f_code.co_name, 'Keyframe: Set location')
+        self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Set location', indent=_debug)
         if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
             
             old_x, old_y, old_z = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates
@@ -891,13 +935,13 @@ class UserInterface(object):
                         y_min if y_join else (y_min, y_max),
                         z_min if z_join else (z_min, z_max))
             self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates = location
-            self._frame_select_new()
+            self._frame_select_new(_debug=_debug + 1)
     
-    def _frame_value_join(self):
+    def _frame_value_join(self, _debug=0):
         """Run whenever a join checkbox is changed in the frame options.
         Updates the visibility of min and max boxes, and uses 'override' to hide all, since it is run after the location disable.
         """
-        self._debug(sys._getframe().f_code.co_name, 'Keyframe: Toggle joined options')
+        self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Toggle joined options', indent=_debug)
         
         override = {'Loc': pm.checkBox(self.inputs[pm.checkBox]['LocationDisable'], query=True, value=True)}
         if self._settings['GroupName'] is not None:
@@ -911,7 +955,7 @@ class UserInterface(object):
                     else:
                         pm.textField(self.inputs[pm.textField][name_start + 'Max'], edit=True, enable=True and not override[i])
     
-    def _frame_get_name(self, frame):
+    def _frame_get_name(self, frame, _debug=0):
         
         frame_name = 'Frame {}'.format(frame)
         if self._settings['CurrentFrame'] == min(self.data[self._settings['GroupName']]['Frames'].keys()):
@@ -920,18 +964,18 @@ class UserInterface(object):
             frame_name += ' (end)'
         return frame_name
     
-    def _frame_select(self, refresh=True):
-        self._debug(sys._getframe().f_code.co_name, 'Keyframe: Update settings')
+    def _frame_select(self, refresh=True, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Update settings', indent=_debug)
         if refresh:
-            self._group_select_new()
+            self._group_select_new(_debug=_debug + 1)
             
         frame_name = self._frame_get_name(self._settings['CurrentFrame'])
         pm.textScrollList(self.inputs[pm.textScrollList]['FrameSelection'], edit=True, selectItem=frame_name)
         pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['CurrentFrame'], edit=True, value=self._settings['CurrentFrame'])
-        self._redraw_groups()
+        self._redraw_groups(_debug=_debug + 1)
     
-    def _frame_change(self):
-        self._debug(sys._getframe().f_code.co_name, 'Keyframe: Change')
+    def _frame_change(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Change', indent=_debug)
         
         new_frame = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['CurrentFrame'], query=True, value=True)
         
@@ -963,11 +1007,11 @@ class UserInterface(object):
        
         self._settings['CurrentFrame'] = new_frame
         self._settings['LastFrameSelection'][self._settings['GroupName']] = new_frame
-        self._group_select_new()
-        self._frame_select(False)
+        self._group_select_new(_debug=_debug + 1)
+        self._frame_select(False, _debug=_debug + 1)
                     
-    def _frame_select_new(self, reset=True):
-        self._debug(sys._getframe().f_code.co_name, 'Keyframe: Select')
+    def _frame_select_new(self, reset=True, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Select', indent=_debug)
         
         if reset:
             try:
@@ -1012,7 +1056,7 @@ class UserInterface(object):
             except KeyError:
                 location = (0.0, 0.0, 0.0)
         
-        self._frame_location_disable()
+        self._frame_location_disable(_debug=_debug + 1)
         try:
             pm.textField(self.inputs[pm.textField]['FrameLocXMin'], edit=True, text=location[0][0])
             pm.textField(self.inputs[pm.textField]['FrameLocXMax'], edit=True, text=location[0][1])
@@ -1041,11 +1085,11 @@ class UserInterface(object):
         pm.radioButton(self.inputs[pm.radioButton]['LocationAbsolute'], edit=True, select=location_absolute is True)
         pm.radioButton(self.inputs[pm.radioButton]['LocationRelative'], edit=True, select=location_absolute is not True)
         
-        self._frame_value_join()
-        self._relative_frame_redraw()
+        self._frame_value_join(_debug=_debug + 1)
+        self._relative_frame_redraw(_debug=_debug + 1)
     
-    def _frame_add(self):
-        self._debug(sys._getframe().f_code.co_name, 'Keyframe: Add')
+    def _frame_add(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Add', indent=_debug)
         
         if self._settings['GroupName'] is not None:
             if self._settings['CurrentFrame'] is not None:
@@ -1057,11 +1101,11 @@ class UserInterface(object):
             self.data[self._settings['GroupName']]['Frames'][new_frame]
             self._settings['CurrentFrame'] = new_frame
             self._settings['LastFrameSelection'][self._settings['GroupName']] = new_frame
-            self._frame_select()
+            self._frame_select(_debug=_debug + 1)
             
 
-    def _frame_remove(self):
-        self._debug(sys._getframe().f_code.co_name, 'Keyframe: Remove')
+    def _frame_remove(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Remove', indent=_debug)
         
         if self._settings['GroupName'] and self._settings['CurrentFrame']:
             all_frames = sorted(self.data[self._settings['GroupName']]['Frames'].keys())
@@ -1078,11 +1122,16 @@ class UserInterface(object):
                 absolute_location = self.data[self._settings['GroupName']]['Frames'][frame].location_absolute
                 if absolute_location is not True and absolute_location is not None and absolute_location not in all_frames:
                     self.data[self._settings['GroupName']]['Frames'][frame].location_absolute = None
-            
-            self._frame_select()
+            for frame in self._settings['LastFrameData'][self._settings['GroupName']]:
+                if 'LocationAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][frame]:
+                    absolute_location = self._settings['LastFrameData'][self._settings['GroupName']][frame]['LocationAbsolute']
+                    if absolute_location is not True and absolute_location is not None and absolute_location not in all_frames:
+                        self._settings['LastFrameData'][self._settings['GroupName']][frame]['LocationAbsolute'] = None
+                        
+            self._frame_select(_debug=_debug + 1)
     
-    def _group_settings_save(self):
-        self._debug(sys._getframe().f_code.co_name, 'Group: Update')
+    def _group_settings_save(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Group: Update', indent=_debug)
         
         if self._settings['GroupName'] is not None:
             self.data[self._settings['GroupName']]['FrameOffset'] = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['FrameOffset'], query=True, value=True)
@@ -1113,10 +1162,10 @@ class UserInterface(object):
                                                               pm.checkBox(self.inputs[pm.checkBox]['OriginZ'], query=True, value=True))
             
 
-            self._redraw_groups()
+            self._redraw_groups(_debug=_debug + 1)
     
-    def _group_name_save(self):
-        self._debug(sys._getframe().f_code.co_name, 'Group: Set name')
+    def _group_name_save(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Group: Set name', indent=_debug)
         
         if self._settings['GroupName'] is not None:
             new_name = str(pm.textField(self.inputs[pm.textField]['GroupName'], query=True, text=True))
@@ -1146,10 +1195,10 @@ class UserInterface(object):
         
             self.data[new_name] = old_data
             self._settings['GroupName'] = new_name
-            self._redraw_groups()
+            self._redraw_groups(_debug=_debug + 1)
         
     
-    def _group_select_new(self):
+    def _group_select_new(self, _debug=0):
         try:
             self._settings['GroupName'] = pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], query=True, selectItem=True)[0].split(' (')[0].replace('*', '')
             if self._settings['GroupName'] not in self.data:
@@ -1209,15 +1258,15 @@ class UserInterface(object):
             pm.button(self.inputs[pm.button]['FrameAdd'], edit=True, enable=True)
             self._settings['CurrentFrame'] = None
         
-        self._debug(sys._getframe().f_code.co_name, 'Group: Changed to {}'.format(self._settings['GroupName']))
+        self._debug_print(sys._getframe().f_code.co_name, 'Group: Changed to {}'.format(self._settings['GroupName']), indent=_debug)
         
-        self._redraw_selection()
-        self._frame_select_new(False)
-        self._objects_select(_redraw=False)
+        self._redraw_selection(_debug=_debug + 1)
+        self._frame_select_new(False, _debug=_debug + 1)
+        self._objects_select(_redraw=False, _debug=_debug + 1)
     
-    def _set_origin_location(self):
+    def _set_origin_location(self, _debug=0):
         '''Set location of origin to the current selection, and average multiple objects if needed.'''
-        self._debug(sys._getframe().f_code.co_name, 'Origin: Set location')
+        self._debug_print(sys._getframe().f_code.co_name, 'Origin: Set location', indent=_debug)
         
         selected_objects = pm.ls(selection=True)
         if selected_objects:
@@ -1230,27 +1279,28 @@ class UserInterface(object):
                 pm.textField(self.inputs[pm.textField]['OriginY'], edit=True, text=average_y)
                 pm.textField(self.inputs[pm.textField]['OriginZ'], edit=True, text=average_z)
                 pm.button(self.inputs[pm.button]['OriginApply'], edit=True, label='Use Current Selection')
-                self._group_settings_save()
+                self._group_settings_save(_debug=_debug + 1)
             except AttributeError:
                 pm.button(self.inputs[pm.button]['OriginApply'], edit=True, label='Use Current Selection (error with selection)')
         else:
             pm.button(self.inputs[pm.button]['OriginApply'], edit=True, label='Use Current Selection (nothing selected)')
     
-    def _refresh_ui(self):
-        self._debug(sys._getframe().f_code.co_name, 'Reload settings')
+    def _refresh_ui(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Reload settings', indent=_debug)
         
-        self.reload()
+        self._reset_settings(_debug=_debug + 1)
+        self.reload(_debug=_debug + 1)
         for k in self._group_unsaved:
             del self._original_data[k]
             del self.data[k]
         self._group_unsaved = []
         self.save(original=True)
-        self._group_select_new()
-        self._redraw_groups()
-        self._redraw_selection()
+        self._group_select_new(_debug=_debug + 1)
+        self._redraw_groups(_debug=_debug + 1)
+        self._redraw_selection(_debug=_debug + 1)
         
-    def _group_clean(self):
-        self._debug(sys._getframe().f_code.co_name, 'Group: Clean')
+    def _group_clean(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Group: Clean', indent=_debug)
         
         try:
             current_index = self.data[self._settings['GroupName']]['ListOrder']
@@ -1263,12 +1313,12 @@ class UserInterface(object):
         for k, v in sorted(self._original_data.iteritems(), key=lambda (x, y): y['ListOrder']):
             if not len(v['ObjectSelection']):
                 self._settings['GroupName'] = k
-                self._group_delete()
+                self._group_delete(_debug=_debug + 1)
                 #print k, self.data.keys()
         for k in new_keys:
             if not len(v['ObjectSelection']):
                 self._settings['GroupName'] = k
-                self._group_delete()
+                self._group_delete(_debug=_debug + 1)
         
         #Reselect a group
         if original_group in self.data:
@@ -1278,12 +1328,12 @@ class UserInterface(object):
                 self._settings['GroupName'] = [k for k, v in self.data.iteritems() if v['ListOrder'] == min(len(self.data) - 1, max(0, current_index))][0]
             except IndexError:
                 self._settings['GroupName'] = None
-        self._redraw_selection()
-        self._redraw_groups()
-        self._group_select_new()
+        self._redraw_selection(_debug=_debug + 1)
+        self._redraw_groups(_debug=_debug + 1)
+        self._group_select_new(_debug=_debug + 1)
     
-    def _group_add(self):
-        self._debug(sys._getframe().f_code.co_name, 'Group: Add')
+    def _group_add(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Group: Add', indent=_debug)
         
         current_index = len(self.data) - 1
         if self._settings['GroupName'] is not None:
@@ -1297,13 +1347,14 @@ class UserInterface(object):
         g = SetGroup(self._settings['GroupName'], list_order=current_index + 1)
         g.save()
         self.data[self._settings['GroupName']] = load_data()[self._settings['GroupName']]
+        
         self._group_unsaved.append(self._settings['GroupName'])
-        self._redraw_selection()
-        self._redraw_groups()
-        self._group_select_new()
+        self._redraw_selection(_debug=_debug + 1)
+        self._redraw_groups(_debug=_debug + 1)
+        self._group_select_new(_debug=_debug + 1)
     
-    def _group_delete(self):
-        self._debug(sys._getframe().f_code.co_name, 'Group: Delete')
+    def _group_delete(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Group: Delete', indent=_debug)
         
         if self._settings['GroupName'] not in self.data:
             self._settings['GroupName'] = None
@@ -1319,15 +1370,15 @@ class UserInterface(object):
             except IndexError:
                 self._settings['GroupName'] = None
                 
-        self._frame_select_new()
+        self._frame_select_new(_debug=_debug + 1)
         if self._settings['GroupName'] is not None:
-            self._redraw_selection()
-            self._redraw_groups()
-            self._group_select_new()
+            self._redraw_selection(_debug=_debug + 1)
+            self._redraw_groups(_debug=_debug + 1)
+            self._group_select_new(_debug=_debug + 1)
         
         
-    def _group_up(self):
-        self._debug(sys._getframe().f_code.co_name, 'Group: Move up')
+    def _group_up(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Group: Move up', indent=_debug)
         if self._settings['GroupName'] is not None:
             list_order = self.data[self._settings['GroupName']]['ListOrder']
             closest_lower = [None, -float('inf')]
@@ -1336,10 +1387,10 @@ class UserInterface(object):
                     closest_lower = [k, v['ListOrder']]
             if closest_lower[0] is not None:
                 self.data[self._settings['GroupName']]['ListOrder'], self.data[closest_lower[0]]['ListOrder'] = self.data[closest_lower[0]]['ListOrder'], self.data[self._settings['GroupName']]['ListOrder']
-            self._redraw_groups()
+            self._redraw_groups(_debug=_debug + 1)
         
-    def _group_down(self):
-        self._debug(sys._getframe().f_code.co_name, 'Group: Move down')
+    def _group_down(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Group: Move down', indent=_debug)
         if self._settings['GroupName'] is not None:
             list_order = self.data[self._settings['GroupName']]['ListOrder']
             closest_higher = [None, float('inf')]
@@ -1348,10 +1399,10 @@ class UserInterface(object):
                     closest_higher = [k, v['ListOrder']]
             if closest_higher[0] is not None:
                 self.data[self._settings['GroupName']]['ListOrder'], self.data[closest_higher[0]]['ListOrder'] = self.data[closest_higher[0]]['ListOrder'], self.data[self._settings['GroupName']]['ListOrder']
-            self._redraw_groups()
+            self._redraw_groups(_debug=_debug + 1)
     
-    def _objects_select(self, _redraw=True):
-        self._debug(sys._getframe().f_code.co_name, 'Objects: New selection, update visibility')
+    def _objects_select(self, _redraw=True, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Objects: New selection, update visibility', indent=_debug)
         
         #If nothing is selected disable controls
         if not self._settings['GroupName'] or self._settings['GroupName'] not in self.data:
@@ -1363,11 +1414,11 @@ class UserInterface(object):
             self._settings['GroupObjects'] = set(map(str, pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], query=True, selectItem=True)))
             self.data[self._settings['GroupName']]['ObjectSelection'] = self._settings['GroupObjects']
         
-        self._visibility_save()
+        self._visibility_save(_debug=_debug + 1)
         if _redraw:
-            self._redraw_groups()
+            self._redraw_groups(_debug=_debug + 1)
     
-    def _visibility_save(self):
+    def _visibility_save(self, _debug=0):
         
         changed = False
         
@@ -1384,34 +1435,34 @@ class UserInterface(object):
         if not changed:
             changed = sorted(self.data.keys()) != sorted(self._original_data.keys())
             
-        self._debug(sys._getframe().f_code.co_name, 'Save: Toggle button visibility ({})'.format(changed))
+        self._debug_print(sys._getframe().f_code.co_name, 'Save: Toggle button visibility ({})'.format(changed), indent=_debug)
 
         pm.button(self.inputs[pm.button]['ObjectSave'], edit=True, enable=changed)
     
-    def _objects_refresh(self):
-        self._debug(sys._getframe().f_code.co_name, 'Objects: Redraw')
+    def _objects_refresh(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Objects: Redraw', indent=_debug)
         #self.reload()
-        self.reload_objects()
-        self._redraw_selection()
+        self.reload_objects(_debug=_debug + 1)
+        self._redraw_selection(_debug=_debug + 1)
         
-    def _save_all(self):
-        self._debug(sys._getframe().f_code.co_name, 'Save: Store all')
+    def _save_all(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Save: Store all', indent=_debug)
         #self.data[self._settings['GroupName']]['ObjectSelection'] = set(self._settings['GroupObjects'])
-        self.save()
-        self._redraw_selection()
-        self._redraw_groups()
+        self.save(_debug=_debug + 1)
+        self._redraw_selection(_debug=_debug + 1)
+        self._redraw_groups(_debug=_debug + 1)
     
-    def _objects_hide(self):
+    def _objects_hide(self, _debug=0):
         """Toggle if already selected objects should be hidden."""
         
         self._settings['HideSelected'] = pm.checkBox(self.inputs[pm.checkBox]['ObjectHide'], query=True, value=True)
-        self._debug(sys._getframe().f_code.co_name, 'Selection: Hide ({})'.format(self._settings['HideSelected']))
+        self._debug_print(sys._getframe().f_code.co_name, 'Selection: Hide ({})'.format(self._settings['HideSelected']), indent=_debug)
         
-        self._redraw_selection()
+        self._redraw_selection(_debug=_debug + 1)
         
-    def _redraw_selection(self):
+    def _redraw_selection(self, _debug=0):
         """Redraw the list of objects."""
-        self._debug(sys._getframe().f_code.co_name, 'Selection: Redraw')
+        self._debug_print(sys._getframe().f_code.co_name, 'Selection: Redraw', indent=_debug)
         
         pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], edit=True, removeAll=True)
         object_list = set(self.scene_objects)
@@ -1431,6 +1482,7 @@ class UserInterface(object):
         pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], edit=True, append=object_list, selectItem=selected_objects)
     
         #Register callbacks to redraw the selection if an object gets deleted
+        #Still a bit buggy
         while self._settings['ScriptJobs']:
             pm.scriptJob(kill=self._settings['ScriptJobs'].pop(0))
         self._settings['ScriptJobs'] = []
@@ -1439,9 +1491,9 @@ class UserInterface(object):
             self._settings['ScriptJobs'].append(script_id)
             
     
-    def _redraw_groups(self):
+    def _redraw_groups(self, _debug=0):
         """Redraw list of groups."""
-        self._debug(sys._getframe().f_code.co_name, 'Groups: Redraw')
+        self._debug_print(sys._getframe().f_code.co_name, 'Groups: Redraw', indent=_debug)
         
         pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], edit=True, removeAll=True)
         group_names = []
@@ -1461,15 +1513,16 @@ class UserInterface(object):
                 self._original_data[k]['ListOrder'] = order_count
                 order_count += 1
             
-            self._selection_clean(k)
+            self._selection_clean(k, _debug=_debug + 1)
             group_names.append(self._group_name_format(k))
         
         pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], edit=True, append=group_names)
         if self._settings['GroupName'] is not None:
             pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], edit=True, selectItem=self._group_name_format(self._settings['GroupName']))
-        self._objects_select(_redraw=False)
+        self._objects_select(_redraw=False, _debug=_debug + 1)
+        self._frame_value_join(_debug=_debug + 1)
     
-    def _group_name_format(self, k):
+    def _group_name_format(self, k, _debug=0):
         """Format the name of the group using the information inside it."""
         try:
             num_items = len(self._original_data[k]['ObjectSelection'])
@@ -1495,17 +1548,17 @@ class UserInterface(object):
                                                                       s1='' if len(all_frames) == 1 else 's',
                                                                       s2='' if num_frames == 1 else 's')
     
-    def _selection_clean(self, group):
-        self._debug(sys._getframe().f_code.co_name, "Selection: Clean group '{}'".format(group))
+    def _selection_clean(self, group, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, "Selection: Clean group '{}'".format(group), indent=_debug)
         
         """Remove any items from the selection that are not in the scene."""
         original_group = set(self.data[group]['ObjectSelection'])
         self.data[group]['ObjectSelection'] = set(i for i in self.data[group]['ObjectSelection'] if i in self.scene_objects)
         return len(self.data[group]['ObjectSelection']) == len(original_group)
     
-    def _debug(self, func_name, description):
+    def _debug_print(self, func_name, description, indent=0):
         now = datetime.datetime.now()
-        print '[{h}:{m}:{s}] {d} ({c}.{f})'.format(h=now.hour, m=now.minute, s=now.second, d=description, c='self', c2=self.__class__.__name__, f=func_name)
+        print '[{h}:{m}:{s}]{i} {d} ({c}.{f})'.format(i=' '*indent, h=now.hour, m=now.minute, s=now.second, d=description, c='self', c2=self.__class__.__name__, f=func_name)
     
     def test(self):
         print 'callback test', self._settings['CurrentFrame']
