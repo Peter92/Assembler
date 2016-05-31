@@ -816,9 +816,6 @@ class UserInterface(object):
         if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
             
             old_x, old_y, old_z = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates
-            old_x_join = not isinstance(old_x, float)
-            old_y_join = not isinstance(old_y, float)
-            old_z_join = not isinstance(old_z, float)
             
             #Get the current location, or revert if any errors
             x_join = pm.checkBox(self.inputs[pm.checkBox]['FrameLocXJoin'], query=True, value=True)
@@ -826,32 +823,36 @@ class UserInterface(object):
                 x_min = float(pm.textField(self.inputs[pm.textField]['FrameLocXMin'], query=True, text=True))
                 x_max = float(pm.textField(self.inputs[pm.textField]['FrameLocXMax'], query=True, text=True))
             except ValueError:
-                if old_x_join:
+                try:
                     x_min, x_max = old_x
-                else:
+                except TypeError:
                     x_min = x_max = old_x
             y_join = pm.checkBox(self.inputs[pm.checkBox]['FrameLocYJoin'], query=True, value=True)
             try:
                 y_min = float(pm.textField(self.inputs[pm.textField]['FrameLocYMin'], query=True, text=True))
                 y_max = float(pm.textField(self.inputs[pm.textField]['FrameLocYMax'], query=True, text=True))
             except ValueError:
-                if old_y_join:
+                try:
                     y_min, y_max = old_y
-                else:
+                except TypeError:
                     y_min = y_max = old_y
             z_join = pm.checkBox(self.inputs[pm.checkBox]['FrameLocZJoin'], query=True, value=True)
             try:
                 z_min = float(pm.textField(self.inputs[pm.textField]['FrameLocZMin'], query=True, text=True))
                 z_max = float(pm.textField(self.inputs[pm.textField]['FrameLocZMax'], query=True, text=True))
             except ValueError:
-                if old_z_join:
+                try:
                     z_min, z_max = old_z
-                else:
+                except TypeError:
                     z_min = z_max = old_z
             
             #Adjust so min isn't more than max
-            x_min_changed = x_min != (old_x[0] if old_x_join else old_x)
-            x_max_changed = x_max != (old_x[1] if old_x_join else old_x) and not x_join
+            try:
+                x_min_changed = x_min != old_x[0]
+                x_max_changed = x_max != old_x[1]and not x_join
+            except TypeError:
+                x_min_changed = x_min != old_x
+                x_max_changed = x_max != old_x and not x_join
             if x_min_changed and x_min > x_max:
                 x_max = x_min
             elif x_max_changed and x_max < x_min:
@@ -859,8 +860,12 @@ class UserInterface(object):
             pm.textField(self.inputs[pm.textField]['FrameLocXMin'], edit=True, text=x_min)
             pm.textField(self.inputs[pm.textField]['FrameLocXMax'], edit=True, text=x_max)
             
-            y_min_changed = y_min != (old_y[0] if old_y_join else old_y)
-            y_max_changed = y_max != (old_y[1] if old_y_join else old_y) and not y_join
+            try:
+                y_min_changed = y_min != old_y[0]
+                y_max_changed = y_max != old_y[1]and not y_join
+            except TypeError:
+                y_min_changed = y_min != old_y
+                y_max_changed = y_max != old_y and not y_join
             if y_min_changed and y_min > y_max:
                 y_max = y_min
             elif x_max_changed and y_max < y_min:
@@ -868,8 +873,12 @@ class UserInterface(object):
             pm.textField(self.inputs[pm.textField]['FrameLocYMin'], edit=True, text=y_min)
             pm.textField(self.inputs[pm.textField]['FrameLocYMax'], edit=True, text=y_max)
             
-            z_min_changed = z_min != (old_z[0] if old_z_join else old_z)
-            z_max_changed = z_max != (old_z[1] if old_z_join else old_z) and not z_join
+            try:
+                z_min_changed = z_min != old_z[0]
+                z_max_changed = z_max != old_z[1]and not z_join
+            except TypeError:
+                z_min_changed = z_min != old_z
+                z_max_changed = z_max != old_z and not z_join
             if z_min_changed and z_min > z_max:
                 z_max = z_min
             elif z_max_changed and z_max < z_min:
@@ -930,13 +939,27 @@ class UserInterface(object):
             
             while new_frame in self.data[self._settings['GroupName']]['Frames']:
                 new_frame += 1
-                
+            
+            #Assign stored values a new frame
             if self._settings['GroupName'] and self._settings['CurrentFrame'] is not None:
                 self.data[self._settings['GroupName']]['Frames'][new_frame] = self.data[self._settings['GroupName']]['Frames'].pop(self._settings['CurrentFrame'])
                 if 'Location' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
                     self._settings['LastFrameData'][self._settings['GroupName']][new_frame]['Location'] = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']].pop('Location')
                 if 'LocationAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
                     self._settings['LastFrameData'][self._settings['GroupName']][new_frame]['LocationAbsolute'] = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']].pop('LocationAbsolute')
+       
+            #Update any relative locations
+            for frame in self.data[self._settings['GroupName']]['Frames']:
+                absolute_location = self.data[self._settings['GroupName']]['Frames'][frame].location_absolute
+                if absolute_location is not True and absolute_location is not None:
+                    if absolute_location == self._settings['CurrentFrame']:
+                        self.data[self._settings['GroupName']]['Frames'][frame].location_absolute = new_frame
+            for frame in self._settings['LastFrameData'][self._settings['GroupName']]:
+                if 'LocationAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][frame]:
+                    absolute_location = self._settings['LastFrameData'][self._settings['GroupName']][frame]['LocationAbsolute']
+                    if absolute_location is not True and absolute_location is not None:
+                        if absolute_location == self._settings['CurrentFrame']:
+                            self._settings['LastFrameData'][self._settings['GroupName']][frame]['LocationAbsolute'] = new_frame
        
         self._settings['CurrentFrame'] = new_frame
         self._settings['LastFrameSelection'][self._settings['GroupName']] = new_frame
