@@ -33,11 +33,8 @@ def convert_from_bytes(x):
 class StoreData:
     _dd = get_defaultdict()
     TYPES = [bool, int, str, dict, list, tuple, float, unicode, tuple, complex, type(None), set, _dd, 'other']
-    #_dd = get_defaultdict()
-    #if _dd != 'invalid':
-    #    TYPES.append(_dd)
     _TYPES = {long: int} #Treat the key type as the value type
-    TYPE_LEN = int(math.ceil(math.log(len(TYPES) + 4, 2)))
+    TYPE_LEN = int(math.ceil(math.log(len(TYPES), 2)))
     LOC = 'C:/Users/Peter/AppData/Roaming/IndexDataTest'
     #need to fix float('inf') and defaultdict
     
@@ -61,7 +58,7 @@ class StoreData:
             try:
                 eval(x)
             except SyntaxError:
-                raise ValueError('unable to decode {} from string')
+                raise ValueError('unable to decode {} from string'.format(item_type))
         
         type_id = self.TYPES.index(item_type)
         encoded_string = int_to_bin(type_id, self.TYPE_LEN)
@@ -349,18 +346,25 @@ class StoreData:
 
 
 class _MovementInfo(object):
-    def __init__(self, location=None, rotation=None, scale=None, visibility=None):
-        self.location_coordinates = location
-        self.rotation_coordinates = rotation
-        self.scale_coordinates = scale
-        self.visibility_coordinates = visibility
-        self.location_absolute = None
-        self.rotation_absolute = None
-        self.scale_absolute = None
-        self.visibility_absolute = None
+    def __init__(self, location_data=None, location_absolute=None, rotation_data=None, rotation_absolute=None, scale_data=None, scale_absolute=None, visibility_data=None, visibility_absolute=None):
+        self.location_coordinates = location_data
+        self.rotation_coordinates = rotation_data
+        self.scale_coordinates = scale_data
+        self.visibility_coordinates = visibility_data
+        self.location_absolute = location_absolute
+        self.rotation_absolute = rotation_absolute
+        self.scale_absolute = scale_absolute
+        self.visibility_absolute = visibility_absolute
     
     def __repr__(self):
-        return '{x.__class__.__name__}(location={x.location_coordinates}, rotation={x.rotation_coordinates}, scale={x.scale_coordinates}, visibility={x.visibility_coordinates})'.format(x=self)
+        return ('{x.__class__.__name__}(location_data={x.location_coordinates}, '
+                                       'location_absolute={x.location_absolute}, '
+                                       'rotation_data={x.rotation_coordinates}, '
+                                       'rotation_absolute={x.rotation_absolute}, '
+                                       'scale_data={x.scale_coordinates}, '
+                                       'scale_absolute={x.scale_absolute}, '
+                                       'visibility_data={x.location_coordinates}, '
+                                       'visibility_absolute={x.visibility_absolute})').format(x=self)
     
     def __eq__(self, other):
         if type(other) != _MovementInfo:
@@ -418,10 +422,6 @@ class SetGroup(_MovementInfo):
         self.frame[50.0]
         self.frame[10.0]
         
-        '''
-        self.frame = {0: _MovementInfo(),
-                      10: _MovementInfo()}
-                      '''
         self.list_order = list_order
     
     def __repr__(self):
@@ -463,14 +463,18 @@ class UserInterface(object):
         self._group_new_count = 0
         self._group_unsaved = []
     
-    def _reset_settings(self):
+    def _reset_settings(self, _debug=0):
+        try:
+            existing_scriptjobs = self._settings['ScriptJobs']
+        except AttributeError:
+            existing_scriptjobs = []
         self._settings = {'GroupObjects': set(),
                           'GroupName': None,
                           'HideSelected': True,
                           'CurrentFrame': None,
                           'LastFrameSelection': {},
                           'LastFrameData': defaultdict(lambda: defaultdict(dict)),
-                          'ScriptJobs': []
+                          'ScriptJobs': existing_scriptjobs
                           }
     
     def reload(self, _debug=0):
@@ -599,48 +603,94 @@ class UserInterface(object):
                             pm.text(label='Frame', align='right')
                             pm.text(label='')
                             self.inputs[pm.floatSliderGrp]['CurrentFrame'] = pm.floatSliderGrp(field=True, value=0, fieldMinValue=-float('inf'), fieldMaxValue=float('inf'), precision=2, changeCommand=pm.Callback(self._frame_change))
-                        with pm.frameLayout(label='Location', collapsable=True, collapse=False) as self.inputs[pm.frameLayout]['Location']:
+                        
+                        with pm.frameLayout(label='Location', collapsable=False, collapse=False) as self.inputs[pm.frameLayout]['Location']:
                             with pm.tabLayout(tabsVisible=False):
                                 with pm.rowColumnLayout(numberOfColumns=1):
-                                    self.inputs[pm.checkBox]['LocationDisable'] = pm.checkBox(label='Disable', value=True, changeCommand=pm.Callback(self._frame_location_disable))
+                                    self.inputs[pm.checkBox]['FrameLocDisable'] = pm.checkBox(label='Disable', value=True, changeCommand=pm.Callback(self._frame_data_disable))
                                     with pm.rowColumnLayout(numberOfColumns=7):
-                           
-                                        pm.text(label='Coordinates', align='right')
+                                        self.inputs[pm.text]['FrameLocCoordinates'] = pm.text(label='Coordinates', align='right')
                                         pm.text(label='')
-                                        pm.text(label='min', align='center')
+                                        self.inputs[pm.text]['FrameLocMin'] = pm.text(label='min', align='center')
                                         pm.text(label='')
-                                        pm.text(label='max', align='center')
+                                        self.inputs[pm.text]['FrameLocMax'] = pm.text(label='max', align='center')
                                         pm.text(label='')
-                                        pm.text(label='join', align='center')
-                                        pm.text(label='x', align='right')
+                                        self.inputs[pm.text]['FrameLocJoin'] = pm.text(label='join', align='center')
+                                        self.inputs[pm.text]['FrameLocX'] = pm.text(label='x', align='right')
                                         pm.text(label='')
-                                        self.inputs[pm.textField]['FrameLocXMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_location_set))
+                                        self.inputs[pm.textField]['FrameLocXMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
                                         pm.text(label='')
-                                        self.inputs[pm.textField]['FrameLocXMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_location_set))
+                                        self.inputs[pm.textField]['FrameLocXMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
                                         pm.text(label='')
-                                        self.inputs[pm.checkBox]['FrameLocXJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_value_join))
-                                        pm.text(label='y', align='right')
+                                        self.inputs[pm.checkBox]['FrameLocXJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                        self.inputs[pm.text]['FrameLocY'] = pm.text(label='y', align='right')
                                         pm.text(label='')
-                                        self.inputs[pm.textField]['FrameLocYMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_location_set))
+                                        self.inputs[pm.textField]['FrameLocYMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
                                         pm.text(label='')
-                                        self.inputs[pm.textField]['FrameLocYMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_location_set))
+                                        self.inputs[pm.textField]['FrameLocYMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
                                         pm.text(label='')
-                                        self.inputs[pm.checkBox]['FrameLocYJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_value_join))
-                                        pm.text(label='z', align='right')
+                                        self.inputs[pm.checkBox]['FrameLocYJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                        self.inputs[pm.text]['FrameLocZ'] = pm.text(label='z', align='right')
                                         pm.text(label='')
-                                        self.inputs[pm.textField]['FrameLocZMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_location_set))
+                                        self.inputs[pm.textField]['FrameLocZMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
                                         pm.text(label='')
-                                        self.inputs[pm.textField]['FrameLocZMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_location_set))
+                                        self.inputs[pm.textField]['FrameLocZMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
                                         pm.text(label='')
-                                        self.inputs[pm.checkBox]['FrameLocZJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_value_join))
-                                        
+                                        self.inputs[pm.checkBox]['FrameLocZJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                                                                
                                     with pm.rowColumnLayout(numberOfColumns=5):
                                         pm.radioCollection()
-                                        self.inputs[pm.radioButton]['LocationAbsolute'] = pm.radioButton(label='Absolute', changeCommand=pm.Callback(self._relative_frame_change_radio))
+                                        self.inputs[pm.radioButton]['FrameLocAbsolute'] = pm.radioButton(label='Absolute', onCommand=pm.Callback(self._relative_frame_change_radio))
                                         with pm.rowColumnLayout(numberOfColumns=2): 
-                                            self.inputs[pm.radioButton]['LocationRelative'] = pm.radioButton(label='Relative to', select=True, changeCommand=pm.Callback(self._relative_frame_change_radio))
-                                            self.inputs[pm.optionMenu]['FrameList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
+                                            self.inputs[pm.radioButton]['FrameLocRelative'] = pm.radioButton(label='Relative to', select=True, onCommand=pm.Callback(self._relative_frame_change_radio))
+                                            self.inputs[pm.radioButton]['FrameLocList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
                                             pm.menuItem(label='Current Location')
+                                        pm.text(label='')
+                                        pm.text(label='')
+                                        pm.text(label='')
+                                        
+                                        
+                        with pm.frameLayout(label='Rotation', collapsable=False, collapse=False) as self.inputs[pm.frameLayout]['Rotation']:
+                            with pm.tabLayout(tabsVisible=False):
+                                with pm.rowColumnLayout(numberOfColumns=1):
+                                    self.inputs[pm.checkBox]['FrameRotDisable'] = pm.checkBox(label='Disable', value=True, changeCommand=pm.Callback(self._frame_data_disable))
+                                    with pm.rowColumnLayout(numberOfColumns=7):
+                                        self.inputs[pm.text]['FrameRotCoordinates'] = pm.text(label='Coordinates', align='right')
+                                        pm.text(label='')
+                                        self.inputs[pm.text]['FrameRotMin'] = pm.text(label='min', align='center')
+                                        pm.text(label='')
+                                        self.inputs[pm.text]['FrameRotMax'] = pm.text(label='max', align='center')
+                                        pm.text(label='')
+                                        self.inputs[pm.text]['FrameRotJoin'] = pm.text(label='join', align='center')
+                                        self.inputs[pm.text]['FrameRotX'] = pm.text(label='x', align='right')
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['FrameRotXMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['FrameRotXMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                        pm.text(label='')
+                                        self.inputs[pm.checkBox]['FrameRotXJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                        self.inputs[pm.text]['FrameRotY'] = pm.text(label='y', align='right')
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['FrameRotYMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['FrameRotYMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                        pm.text(label='')
+                                        self.inputs[pm.checkBox]['FrameRotYJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                        self.inputs[pm.text]['FrameRotZ'] = pm.text(label='z', align='right')
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['FrameRotZMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                        pm.text(label='')
+                                        self.inputs[pm.textField]['FrameRotZMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                        pm.text(label='')
+                                        self.inputs[pm.checkBox]['FrameRotZJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                                        
+                                    with pm.rowColumnLayout(numberOfColumns=5):
+                                        pm.radioCollection()
+                                        self.inputs[pm.radioButton]['FrameRotAbsolute'] = pm.radioButton(label='Absolute', onCommand=pm.Callback(self._relative_frame_change_radio))
+                                        with pm.rowColumnLayout(numberOfColumns=2): 
+                                            self.inputs[pm.radioButton]['FrameRotRelative'] = pm.radioButton(label='Relative to', select=True, onCommand=pm.Callback(self._relative_frame_change_radio))
+                                            self.inputs[pm.radioButton]['FrameRotList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
+                                            pm.menuItem(label='Current Rotation')
                                         pm.text(label='')
                                         pm.text(label='')
                                         pm.text(label='')
@@ -670,7 +720,8 @@ class UserInterface(object):
         self._frame_select_new(_debug=_debug + 1)
         self._relative_frame_redraw(_debug=_debug + 1)
         pm.showWindow()
-        
+   
+   
     def save(self, original=False, _debug=0):
         self._debug_print(sys._getframe().f_code.co_name, 'Save into scene', indent=_debug)
         if original:
@@ -719,76 +770,113 @@ class UserInterface(object):
     def _relative_frame_change_dropdown(self, _debug=0):
         self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Dropdown change', indent=_debug)
         if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
-            selected_frame = self._frame_dropdown_format(pm.optionMenu(self.inputs[pm.optionMenu]['FrameList'], query=True, value=True), undo=True)
-            if self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute == True:
-                self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['LocationAbsolute'] = selected_frame
-            else:
+            
+            selected_frame = self._frame_dropdown_format(pm.optionMenu(self.inputs[pm.radioButton]['FrameLocList'], query=True, value=True), undo=True)
+            if self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute is not True:
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute = selected_frame
+            self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['LocationAbsolute'] = selected_frame
+            
+            selected_frame = self._frame_dropdown_format(pm.optionMenu(self.inputs[pm.radioButton]['FrameRotList'], query=True, value=True), undo=True)
+            if self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_absolute is not True:
+                self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_absolute = selected_frame
+            self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['RotationAbsolute'] = selected_frame
+                
     
     def _relative_frame_change_radio(self, _debug=0):
         self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Radio update', indent=_debug)
         
-        location_is_absolute = pm.radioButton(self.inputs[pm.radioButton]['LocationAbsolute'], query=True, select=True)
-        location_is_relative = pm.radioButton(self.inputs[pm.radioButton]['LocationRelative'], query=True, select=True)
-        
         if self._settings['GroupName'] is not None and self._settings['GroupName'] in self.data and self._settings['CurrentFrame'] is not None:
+            
+            location_is_absolute = pm.radioButton(self.inputs[pm.radioButton]['FrameLocAbsolute'], query=True, select=True)
+            location_is_relative = pm.radioButton(self.inputs[pm.radioButton]['FrameLocRelative'], query=True, select=True)
+            
             if location_is_absolute:
-                #pm.radioButton(self.inputs[pm.radioButton]['LocationAbsolute'], edit=True, select=True)
-                
                 old_location = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute
                 if old_location is not True:
                     self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['LocationAbsolute'] = old_location
                 
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute = True
+                
             else:
-                #pm.radioButton(self.inputs[pm.radioButton]['LocationRelative'], edit=True, select=True)
-                pm.optionMenu(self.inputs[pm.optionMenu]['FrameList'], edit=True, enable=True)
+                pm.optionMenu(self.inputs[pm.radioButton]['FrameLocList'], edit=True, enable=True)
+                
                 if 'LocationAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
-                    old_location = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']].pop('LocationAbsolute')
+                    old_location = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['LocationAbsolute']
                 else:
                     old_location = None
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute = old_location
+            
+            rotation_is_absolute = pm.radioButton(self.inputs[pm.radioButton]['FrameRotAbsolute'], query=True, select=True)
+            rotation_is_relative = pm.radioButton(self.inputs[pm.radioButton]['FrameRotRelative'], query=True, select=True)
+            
+            if rotation_is_absolute:
+                old_rotation = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_absolute
+                if old_rotation is not True:
+                    self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['RotationAbsolute'] = old_rotation
                 
+                self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_absolute = True
+                
+            else:
+                pm.optionMenu(self.inputs[pm.radioButton]['FrameRotList'], edit=True, enable=True)
+                if 'RotationAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
+                    old_rotation = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['RotationAbsolute']
+                else:
+                    old_rotation = None
+                self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_absolute = old_rotation
+                
+        self._frame_data_disable(_debug=_debug + 1)
         self._relative_frame_redraw(_debug=_debug + 1)
     
     def _relative_frame_redraw(self, _debug=0):
         self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Dropdown redraw', indent=_debug)
+        temp_data = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]
         
-        dropdown_options = pm.optionMenu(self.inputs[pm.optionMenu]['FrameList'], query=True, itemListLong=True)
-        for i in dropdown_options[1:]:
-            pm.deleteUI(i)
-        
-        if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
-            for i in sorted(self.data[self._settings['GroupName']]['Frames'].keys()):
-                if i != self._settings['CurrentFrame']:
-                    pm.menuItem(label=self._frame_dropdown_format(i), parent=self.inputs[pm.optionMenu]['FrameList'])
+        #Get stored values
+        if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] in self.data[self._settings['GroupName']]['Frames']:
             
-            location_absolute = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute
-            
-            if location_absolute is True:
-                
-                #Get temporary value
-                old_location = None
-                if 'LocationAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
-                    old_location = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['LocationAbsolute']
-                if old_location is None:
-                    old_location = 'Current Location'
-                else:
-                    old_location = self._frame_dropdown_format(old_location)
-                    
-                pm.optionMenu(self.inputs[pm.optionMenu]['FrameList'], edit=True, enable=False, value=old_location)
-                
-            else:
-                if location_absolute is None:
-                    pm.optionMenu(self.inputs[pm.optionMenu]['FrameList'], edit=True, value='Current Location')
-                else:
-                    pm.optionMenu(self.inputs[pm.optionMenu]['FrameList'], edit=True, value=self._frame_dropdown_format(location_absolute))
-                    
-        
-        #Disable frame controls
+            stored_data = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']]
+            loc = stored_data.location_absolute
+            rot = stored_data.rotation_absolute
         else:
-            pm.optionMenu(self.inputs[pm.optionMenu]['FrameList'], edit=True, enable=False, value='Current Location')
+            loc = None
+            rot = None
             
+            
+        stuff = {'Loc': (loc, 'LocationAbsolute', 'Current Location'),
+                 'Rot': (rot, 'RotationAbsolute', 'Current Rotation')}
+        
+        for i in stuff:
+            
+            name_start = 'Frame{}'.format(i)
+            dropdown_options = pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], query=True, itemListLong=True)
+            for j in dropdown_options[1:]:
+                pm.deleteUI(j)
+                
+            if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
+                for j in sorted(self.data[self._settings['GroupName']]['Frames'].keys()):
+                    if j != self._settings['CurrentFrame']:
+                        pm.menuItem(label=self._frame_dropdown_format(j), parent=self.inputs[pm.radioButton]['{}List'.format(name_start)])
+                        
+                if stuff[i][0] is True:
+                    #Get temporary value
+                    old_value = None
+                    if stuff[i][1] in temp_data:
+                        old_value = temp_data[stuff[i][1]]
+                    if old_value is None:
+                        old_value = stuff[i][2]
+                    else:
+                        old_value = self._frame_dropdown_format(old_value)
+                    pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, enable=False, value=old_value)
+                    
+                else:
+                    if stuff[i][0] is None:
+                        pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, value=stuff[i][2])
+                    else:
+                        pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, value=self._frame_dropdown_format(stuff[i][0]))
+                
+            #Disable frame controls
+            else:
+                pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, enable=False, value=stuff[i][2])
     
     def _frame_dropdown_format(self, i, undo=False, _debug=0):
         """Format the name of the frames."""
@@ -802,44 +890,58 @@ class UserInterface(object):
                 i = int(i)
             return 'Frame {}'.format(i)
     
-    def _frame_location_disable(self, _debug=0):
+    def _frame_data_disable(self, _debug=0):
         """Turn on or off location for each frame."""
         self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Disable location', indent=_debug)
         
-        should_disable = pm.checkBox(self.inputs[pm.checkBox]['LocationDisable'], query=True, value=True)
+        loc_disable = pm.checkBox(self.inputs[pm.checkBox]['FrameLocDisable'], query=True, value=True)
+        rot_disable = pm.checkBox(self.inputs[pm.checkBox]['FrameRotDisable'], query=True, value=True)
         
-        #Disable if frame is the end frame
-        if self._settings['GroupName'] is not None:
-            if self.data[self._settings['GroupName']]['Frames'] and max(self.data[self._settings['GroupName']]['Frames'].keys()) == self._settings['CurrentFrame']:
-                should_disable = True
-                pm.checkBox(self.inputs[pm.checkBox]['LocationDisable'], edit=True, enable=False, value=True)
-                pm.optionMenu(self.inputs[pm.optionMenu]['FrameList'], edit=True, enable=False)
+        disable_items = {'Loc': loc_disable,
+                         'Rot': rot_disable}
         
         #Control the visibility
-        for i in 'XYZ':
-            for j in ('Min', 'Max', 'Join'):
-                name = 'FrameLoc{}{}'.format(i, j)
-                if j == 'Join':
-                    pm.checkBox(self.inputs[pm.checkBox][name], edit=True, enable=not should_disable)
-                else:
-                    pm.textField(self.inputs[pm.textField][name], edit=True, enable=not should_disable)
+        for i in disable_items:
+            
+            name_start = 'Frame{}'.format(i)
+            
+            #Disable if max or min value
+            if self._settings['GroupName'] is not None:
+                if self.data[self._settings['GroupName']]['Frames'] and max(self.data[self._settings['GroupName']]['Frames'].keys()) == self._settings['CurrentFrame']:
+                    disable_items[i] = True
+                    pm.checkBox(self.inputs[pm.checkBox]['{}Disable'.format(name_start)], edit=True, enable=False, value=True)
+                    pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, enable=False)
+                
+            
+            override = pm.checkBox(self.inputs[pm.checkBox]['{}Disable'.format(name_start)], query=True, value=True)
+            for j in 'XYZ':
+                for k in ('Min', 'Max', 'Join'):
+                    name_checkbox = '{}{}{}'.format(name_start, j, k)
+                    if k == 'Join':
+                        pm.checkBox(self.inputs[pm.checkBox][name_checkbox], edit=True, enable=not disable_items[i])
+                    else:
+                        pm.textField(self.inputs[pm.textField][name_checkbox], edit=True, enable=not disable_items[i])
         
-        #Assign location values
+            if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
+                pm.radioButton(self.inputs[pm.radioButton]['{}Absolute'.format(name_start)], edit=True, enable=not disable_items[i])
+                pm.radioButton(self.inputs[pm.radioButton]['{}Relative'.format(name_start)], edit=True, enable=not disable_items[i])
+                pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, enable=not disable_items[i] or not override)
+                for j in ('Coordinates', 'Min', 'Max', 'Join', 'X', 'Y', 'Z'):
+                    pm.text(self.inputs[pm.text]['{}{}'.format(name_start, j)], edit=True, enable=not disable_items[i])
+                     
+        #Store data 
         if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
             
-            override = {'Loc': pm.checkBox(self.inputs[pm.checkBox]['LocationDisable'], query=True, value=True)}
-            pm.radioButton(self.inputs[pm.radioButton]['LocationAbsolute'], edit=True, enable=not should_disable)
-            pm.radioButton(self.inputs[pm.radioButton]['LocationRelative'], edit=True, enable=not should_disable)
-            pm.optionMenu(self.inputs[pm.optionMenu]['FrameList'], edit=True, enable=not should_disable or not override['Loc'])
+            current_location = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates
             
-            if should_disable:
-                if self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates is not None:
-                    self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['Location'] = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates
+            #Send location to temporary storage
+            if loc_disable:
+                if current_location is not None:
+                    self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['Location'] = current_location
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates = None
-                
-                
-            elif self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates is None:
-                
+            
+            #Load location from temporary storage
+            elif current_location is None:
                 try:
                     location = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']].pop('Location')
                     if location is None:
@@ -848,112 +950,116 @@ class UserInterface(object):
                     location = (0.0, 0.0, 0.0)
                     
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates = location
-    
+            
+            current_rotation = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_coordinates
+            
+            #Send rotation to temporary storage
+            if rot_disable:
+                if current_rotation is not None:
+                    self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['Rotation'] = current_rotation
+                self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_coordinates = None
+            
+            #Load rotation from temporary storage
+            elif current_rotation is None:
+                try:
+                    rotation = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']].pop('Rotation')
+                    if rotation is None:
+                        raise KeyError()
+                except KeyError:
+                    rotation = (0.0, 0.0, 0.0)
+                    
+                self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_coordinates = rotation
+                
         self._redraw_groups(_debug=_debug + 1)
         #self._visibility_save(_debug=_debug + 1)
-        #self._frame_value_join(_debug=_debug + 1)
+        #self._frame_data_join(_debug=_debug + 1)
     
-    def _frame_location_set(self, _debug=0):
+    def _frame_data_set(self, _debug=0):
         """Store the current values input into the frame location fields."""
         
-        self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Set location', indent=_debug)
+        self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Set data', indent=_debug)
         if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
             
-            old_x, old_y, old_z = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates
             
-            #Get the current location, or revert if any errors
-            x_join = pm.checkBox(self.inputs[pm.checkBox]['FrameLocXJoin'], query=True, value=True)
-            try:
-                x_min = float(pm.textField(self.inputs[pm.textField]['FrameLocXMin'], query=True, text=True))
-                x_max = float(pm.textField(self.inputs[pm.textField]['FrameLocXMax'], query=True, text=True))
-            except ValueError:
-                try:
-                    x_min, x_max = old_x
-                except TypeError:
-                    x_min = x_max = old_x
-            y_join = pm.checkBox(self.inputs[pm.checkBox]['FrameLocYJoin'], query=True, value=True)
-            try:
-                y_min = float(pm.textField(self.inputs[pm.textField]['FrameLocYMin'], query=True, text=True))
-                y_max = float(pm.textField(self.inputs[pm.textField]['FrameLocYMax'], query=True, text=True))
-            except ValueError:
-                try:
-                    y_min, y_max = old_y
-                except TypeError:
-                    y_min = y_max = old_y
-            z_join = pm.checkBox(self.inputs[pm.checkBox]['FrameLocZJoin'], query=True, value=True)
-            try:
-                z_min = float(pm.textField(self.inputs[pm.textField]['FrameLocZMin'], query=True, text=True))
-                z_max = float(pm.textField(self.inputs[pm.textField]['FrameLocZMax'], query=True, text=True))
-            except ValueError:
-                try:
-                    z_min, z_max = old_z
-                except TypeError:
-                    z_min = z_max = old_z
+            old_loc = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates
+            old_rot = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_coordinates
+            #old_scale = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_coordinates
+            #old_vis = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].visibility_coordinates
             
-            #Adjust so min isn't more than max
-            try:
-                x_min_changed = x_min != old_x[0]
-                x_max_changed = x_max != old_x[1]and not x_join
-            except TypeError:
-                x_min_changed = x_min != old_x
-                x_max_changed = x_max != old_x and not x_join
-            if x_min_changed and x_min > x_max:
-                x_max = x_min
-            elif x_max_changed and x_max < x_min:
-                x_min = x_max
-            pm.textField(self.inputs[pm.textField]['FrameLocXMin'], edit=True, text=x_min)
-            pm.textField(self.inputs[pm.textField]['FrameLocXMax'], edit=True, text=x_max)
+            old_stuff = {}
+            if old_loc is not None:
+                old_stuff['Loc'] = {'X': old_loc[0],
+                                    'Y': old_loc[1],
+                                    'Z': old_loc[2]}
+            if old_rot is not None:
+                old_stuff['Rot'] = {'X': old_rot[0],
+                                    'Y': old_rot[1],
+                                    'Z': old_rot[2]}
+                                 
+            results = defaultdict(list)
+            for i in old_stuff:
+                name_base = 'Frame{}'.format(i)
+                for j in ('X', 'Y', 'Z'):
+                    
+                    #Get the current value
+                    name_start = '{}{}'.format(name_base, j)
+                    val_join = pm.checkBox(self.inputs[pm.checkBox]['{}Join'.format(name_start)], query=True, value=True)
+                    try:
+                        val_min = float(pm.textField(self.inputs[pm.textField]['{}Min'.format(name_start)], query=True, text=True))
+                        val_max = float(pm.textField(self.inputs[pm.textField]['{}Max'.format(name_start)], query=True, text=True))
+                        
+                    #Revert to old value if any errors
+                    except ValueError:
+                        try:
+                            val_min, val_max = old_stuff[i][j]
+                        except TypeError:
+                            val_min = val_max = old_stuff[i][j]
+                    
+                    #Adjust the max/min values
+                    try:
+                        val_min_changed = val_min != old_stuff[i][j][0]
+                        val_max_changed = val_min != old_stuff[i][j][1] and not val_join
+                    except TypeError:
+                        val_min_changed = val_min != old_stuff[i][j]
+                        val_max_changed = val_min != old_stuff[i][j] and not val_join
+                    if val_min_changed and val_min > val_max:
+                        val_max = val_min
+                    elif val_max_changed and val_max < val_min:
+                        val_min = val_max
+                    
+                    #Set the text fields to the processed values
+                    pm.textField(self.inputs[pm.textField]['{}Min'.format(name_start)], edit=True, text=val_min)
+                    pm.textField(self.inputs[pm.textField]['{}Max'.format(name_start)], edit=True, text=val_max)
+                    
+                    #Store the values to save afterwards
+                    results[i].append(val_min if val_join else (val_min, val_max))
             
-            try:
-                y_min_changed = y_min != old_y[0]
-                y_max_changed = y_max != old_y[1]and not y_join
-            except TypeError:
-                y_min_changed = y_min != old_y
-                y_max_changed = y_max != old_y and not y_join
-            if y_min_changed and y_min > y_max:
-                y_max = y_min
-            elif x_max_changed and y_max < y_min:
-                y_min = y_max
-            pm.textField(self.inputs[pm.textField]['FrameLocYMin'], edit=True, text=y_min)
-            pm.textField(self.inputs[pm.textField]['FrameLocYMax'], edit=True, text=y_max)
+            if old_loc is not None:
+                self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates = tuple(results['Loc'])
+            if old_rot is not None:
+                self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_coordinates = tuple(results['Rot'])
             
-            try:
-                z_min_changed = z_min != old_z[0]
-                z_max_changed = z_max != old_z[1]and not z_join
-            except TypeError:
-                z_min_changed = z_min != old_z
-                z_max_changed = z_max != old_z and not z_join
-            if z_min_changed and z_min > z_max:
-                z_max = z_min
-            elif z_max_changed and z_max < z_min:
-                z_min = z_max
-            pm.textField(self.inputs[pm.textField]['FrameLocZMin'], edit=True, text=z_min)
-            pm.textField(self.inputs[pm.textField]['FrameLocZMax'], edit=True, text=z_max)
-            
-            #Store the new location
-            location = (x_min if x_join else (x_min, x_max),
-                        y_min if y_join else (y_min, y_max),
-                        z_min if z_join else (z_min, z_max))
-            self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates = location
             self._frame_select_new(_debug=_debug + 1)
     
-    def _frame_value_join(self, _debug=0):
+    
+    def _frame_data_join(self, _debug=0):
         """Run whenever a join checkbox is changed in the frame options.
         Updates the visibility of min and max boxes, and uses 'override' to hide all, since it is run after the location disable.
         """
         self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Toggle joined options', indent=_debug)
         
-        override = {'Loc': pm.checkBox(self.inputs[pm.checkBox]['LocationDisable'], query=True, value=True)}
         if self._settings['GroupName'] is not None:
-            for i in ['Loc']:
-                for j in 'XYZ':
-                    name_start = 'Frame{}{}'.format(i, j)
+            for i in ('Loc', 'Rot'):
+                name_base = 'Frame{}'.format(i)
+                override = pm.checkBox(self.inputs[pm.checkBox]['{}Disable'.format(name_base)], query=True, value=True)
+                for j in ('X', 'Y', 'Z'):
+                    name_start = '{}{}'.format(name_base, j)
                     join_values = pm.checkBox(self.inputs[pm.checkBox][name_start + 'Join'], query=True, value=True)
                     min_value = float(pm.textField(self.inputs[pm.textField][name_start + 'Min'], query=True, text=True))
                     if join_values:
                         pm.textField(self.inputs[pm.textField][name_start + 'Max'], edit=True, enable=False, text=min_value)
                     else:
-                        pm.textField(self.inputs[pm.textField][name_start + 'Max'], edit=True, enable=True and not override[i])
+                        pm.textField(self.inputs[pm.textField][name_start + 'Max'], edit=True, enable=True and not override)
     
     def _frame_get_name(self, frame, _debug=0):
         
@@ -975,6 +1081,7 @@ class UserInterface(object):
         self._redraw_groups(_debug=_debug + 1)
     
     def _frame_change(self, _debug=0):
+        """Update settings whenever a keyframe is renamed."""
         self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Change', indent=_debug)
         
         new_frame = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['CurrentFrame'], query=True, value=True)
@@ -987,23 +1094,38 @@ class UserInterface(object):
             #Assign stored values a new frame
             if self._settings['GroupName'] and self._settings['CurrentFrame'] is not None:
                 self.data[self._settings['GroupName']]['Frames'][new_frame] = self.data[self._settings['GroupName']]['Frames'].pop(self._settings['CurrentFrame'])
+                
                 if 'Location' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
                     self._settings['LastFrameData'][self._settings['GroupName']][new_frame]['Location'] = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']].pop('Location')
                 if 'LocationAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
                     self._settings['LastFrameData'][self._settings['GroupName']][new_frame]['LocationAbsolute'] = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']].pop('LocationAbsolute')
        
-            #Update any relative locations
+                if 'Rotation' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
+                    self._settings['LastFrameData'][self._settings['GroupName']][new_frame]['Rotation'] = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']].pop('Rotation')
+                if 'RotationAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
+                    self._settings['LastFrameData'][self._settings['GroupName']][new_frame]['RotationAbsolute'] = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']].pop('RotationAbsolute')
+       
+            #Update any relative values
             for frame in self.data[self._settings['GroupName']]['Frames']:
-                absolute_location = self.data[self._settings['GroupName']]['Frames'][frame].location_absolute
-                if absolute_location is not True and absolute_location is not None:
-                    if absolute_location == self._settings['CurrentFrame']:
+                location_absolute = self.data[self._settings['GroupName']]['Frames'][frame].location_absolute
+                if location_absolute is not True and location_absolute is not None:
+                    if location_absolute == self._settings['CurrentFrame']:
                         self.data[self._settings['GroupName']]['Frames'][frame].location_absolute = new_frame
-            for frame in self._settings['LastFrameData'][self._settings['GroupName']]:
-                if 'LocationAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][frame]:
-                    absolute_location = self._settings['LastFrameData'][self._settings['GroupName']][frame]['LocationAbsolute']
-                    if absolute_location is not True and absolute_location is not None:
-                        if absolute_location == self._settings['CurrentFrame']:
-                            self._settings['LastFrameData'][self._settings['GroupName']][frame]['LocationAbsolute'] = new_frame
+                        
+                rotation_absolute = self.data[self._settings['GroupName']]['Frames'][frame].rotation_absolute
+                if rotation_absolute is not True and rotation_absolute is not None:
+                    if rotation_absolute == self._settings['CurrentFrame']:
+                        self.data[self._settings['GroupName']]['Frames'][frame].rotation_absolute = new_frame
+            
+            #Update any relative temporary values
+            for i in ('Location', 'Rotation'):
+                name_absolute = '{}Absolute'.format(i)
+                for frame in self._settings['LastFrameData'][self._settings['GroupName']]:
+                    if name_absolute in self._settings['LastFrameData'][self._settings['GroupName']][frame]:
+                        absolute_value = self._settings['LastFrameData'][self._settings['GroupName']][frame][name_absolute]
+                        if absolute_value is not True and absolute_value is not None:
+                            if absolute_value == self._settings['CurrentFrame']:
+                                self._settings['LastFrameData'][self._settings['GroupName']][frame][name_absolute] = new_frame
        
         self._settings['CurrentFrame'] = new_frame
         self._settings['LastFrameSelection'][self._settings['GroupName']] = new_frame
@@ -1011,6 +1133,7 @@ class UserInterface(object):
         self._frame_select(False, _debug=_debug + 1)
                     
     def _frame_select_new(self, reset=True, _debug=0):
+        """Update settings when a new frame is selected."""
         self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Select', indent=_debug)
         
         if reset:
@@ -1021,6 +1144,7 @@ class UserInterface(object):
                 self._settings['CurrentFrame'] = None
             else:
                 self._settings['CurrentFrame'] = float(''.join(i for i in current_frame if i in digits or i == '.'))
+                
         
         #Load previous selection
         if self._settings['GroupName'] is not None:
@@ -1031,23 +1155,31 @@ class UserInterface(object):
                 self._settings['CurrentFrame'] = self._settings['LastFrameSelection'][self._settings['GroupName']]
                 self._frame_select(False)
         
+        #Control what is enabled
         enable = self._settings['CurrentFrame'] is not None
         enable_keyframe = enable and self._settings['CurrentFrame']
         pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['CurrentFrame'], edit=True, enable=enable_keyframe, value=self._settings['CurrentFrame'] or 0.0)
-        pm.checkBox(self.inputs[pm.checkBox]['LocationDisable'], edit=True, enable=enable)
-                
+        for i in ('Loc', 'Rot'):
+            name_start = 'Frame{}'.format(i)
+            pm.checkBox(self.inputs[pm.checkBox]['{}Disable'.format(name_start)], edit=True, enable=enable)
+        
+        #Read stored values
         if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
             frame_data = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']]
             location = frame_data.location_coordinates
             location_absolute = frame_data.location_absolute
+            rotation = frame_data.rotation_coordinates
+            rotation_absolute = frame_data.rotation_absolute
         else:
             location = None
             location_absolute = None
+            rotation = None
+            rotation_absolute = None
             
-        pm.checkBox(self.inputs[pm.checkBox]['LocationDisable'], edit=True, value=location is None)
-        #pm.frameLayout(self.inputs[pm.frameLayout]['Location'], edit=True, collapse=location is None)
+        pm.checkBox(self.inputs[pm.checkBox]['FrameLocDisable'], edit=True, value=location is None)
+        pm.checkBox(self.inputs[pm.checkBox]['FrameRotDisable'], edit=True, value=rotation is None)
         
-        #Assign stored location if it is disabled
+        #Assign stored data if it is disabled
         if location is None:
             try:
                 location = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['Location']
@@ -1055,37 +1187,33 @@ class UserInterface(object):
                     raise KeyError()
             except KeyError:
                 location = (0.0, 0.0, 0.0)
+        if rotation is None:
+            try:
+                rotation = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['Rotation']
+                if rotation is None:
+                    raise KeyError()
+            except KeyError:
+                rotation = (0.0, 0.0, 0.0)
         
-        self._frame_location_disable(_debug=_debug + 1)
-        try:
-            pm.textField(self.inputs[pm.textField]['FrameLocXMin'], edit=True, text=location[0][0])
-            pm.textField(self.inputs[pm.textField]['FrameLocXMax'], edit=True, text=location[0][1])
-            pm.checkBox(self.inputs[pm.checkBox]['FrameLocXJoin'], edit=True, value=False)
-        except:
-            pm.textField(self.inputs[pm.textField]['FrameLocXMin'], edit=True, text=location[0])
-            pm.textField(self.inputs[pm.textField]['FrameLocXMax'], edit=True, text=location[0])
-            pm.checkBox(self.inputs[pm.checkBox]['FrameLocXJoin'], edit=True, value=True)
-        try:
-            pm.textField(self.inputs[pm.textField]['FrameLocYMin'], edit=True, text=location[1][0])
-            pm.textField(self.inputs[pm.textField]['FrameLocYMax'], edit=True, text=location[1][1])
-            pm.checkBox(self.inputs[pm.checkBox]['FrameLocYJoin'], edit=True, value=False)
-        except:
-            pm.textField(self.inputs[pm.textField]['FrameLocYMin'], edit=True, text=location[1])
-            pm.textField(self.inputs[pm.textField]['FrameLocYMax'], edit=True, text=location[1])
-            pm.checkBox(self.inputs[pm.checkBox]['FrameLocYJoin'], edit=True, value=True)
-        try:
-            pm.textField(self.inputs[pm.textField]['FrameLocZMin'], edit=True, text=location[2][0])
-            pm.textField(self.inputs[pm.textField]['FrameLocZMax'], edit=True, text=location[2][1])
-            pm.checkBox(self.inputs[pm.checkBox]['FrameLocZJoin'], edit=True, value=False)
-        except:
-            pm.textField(self.inputs[pm.textField]['FrameLocZMin'], edit=True, text=location[2])
-            pm.textField(self.inputs[pm.textField]['FrameLocZMax'], edit=True, text=location[2])
-            pm.checkBox(self.inputs[pm.checkBox]['FrameLocZJoin'], edit=True, value=True)
+        self._frame_data_disable(_debug=_debug + 1)
+        stuff = {'Loc': (location, location_absolute),
+                 'Rot': (rotation, rotation_absolute)}
+                 
+        for i in stuff:
+            name_start = 'Frame{}'.format(i)
+            for count, j in enumerate(('X', 'Y', 'Z')):
+                try:
+                    pm.textField(self.inputs[pm.textField]['{}{}Min'.format(name_start, j)], edit=True, text=stuff[i][0][count][0])
+                    pm.textField(self.inputs[pm.textField]['{}{}Max'.format(name_start, j)], edit=True, text=stuff[i][0][count][1])
+                    pm.checkBox(self.inputs[pm.checkBox]['{}{}Join'.format(name_start, j)], edit=True, value=False)
+                except TypeError:
+                    pm.textField(self.inputs[pm.textField]['{}{}Min'.format(name_start, j)], edit=True, text=stuff[i][0][count])
+                    pm.textField(self.inputs[pm.textField]['{}{}Max'.format(name_start, j)], edit=True, text=stuff[i][0][count])
+                    pm.checkBox(self.inputs[pm.checkBox]['{}{}Join'.format(name_start, j)], edit=True, value=True)
+            pm.radioButton(self.inputs[pm.radioButton]['{}Absolute'.format(name_start)], edit=True, select=stuff[i][1] is True)
+            pm.radioButton(self.inputs[pm.radioButton]['{}Relative'.format(name_start)], edit=True, select=stuff[i][1] is not True)
         
-        pm.radioButton(self.inputs[pm.radioButton]['LocationAbsolute'], edit=True, select=location_absolute is True)
-        pm.radioButton(self.inputs[pm.radioButton]['LocationRelative'], edit=True, select=location_absolute is not True)
-        
-        self._frame_value_join(_debug=_debug + 1)
+        self._frame_data_join(_debug=_debug + 1)
         self._relative_frame_redraw(_debug=_debug + 1)
     
     def _frame_add(self, _debug=0):
@@ -1119,14 +1247,23 @@ class UserInterface(object):
             #Validate any relative locations and remove if non existant
             all_frames = set(self.data[self._settings['GroupName']]['Frames'])
             for frame in self.data[self._settings['GroupName']]['Frames']:
-                absolute_location = self.data[self._settings['GroupName']]['Frames'][frame].location_absolute
-                if absolute_location is not True and absolute_location is not None and absolute_location not in all_frames:
+                
+                location_absolute = self.data[self._settings['GroupName']]['Frames'][frame].location_absolute
+                if location_absolute is not True and location_absolute is not None and location_absolute not in all_frames:
                     self.data[self._settings['GroupName']]['Frames'][frame].location_absolute = None
+                    
+                rotation_absolute = self.data[self._settings['GroupName']]['Frames'][frame].rotation_absolute
+                if rotation_absolute is not True and rotation_absolute is not None and rotation_absolute not in all_frames:
+                    self.data[self._settings['GroupName']]['Frames'][frame].rotation_absolute = None
+                    
+                    
             for frame in self._settings['LastFrameData'][self._settings['GroupName']]:
-                if 'LocationAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][frame]:
-                    absolute_location = self._settings['LastFrameData'][self._settings['GroupName']][frame]['LocationAbsolute']
-                    if absolute_location is not True and absolute_location is not None and absolute_location not in all_frames:
-                        self._settings['LastFrameData'][self._settings['GroupName']][frame]['LocationAbsolute'] = None
+                for i in ('Location', 'Rotation'):
+                    name = '{}Absolute'.format(i)
+                    if name in self._settings['LastFrameData'][self._settings['GroupName']][frame]:
+                        absolute_value = self._settings['LastFrameData'][self._settings['GroupName']][frame][name]
+                        if absolute_value is not True and absolute_value is not None and absolute_value not in all_frames:
+                            self._settings['LastFrameData'][self._settings['GroupName']][frame][name] = None
                         
             self._frame_select(_debug=_debug + 1)
     
@@ -1222,8 +1359,14 @@ class UserInterface(object):
             pm.checkBox(self.inputs[pm.checkBox]['OriginZ'], edit=True, value=False, enable=False)
             pm.textScrollList(self.inputs[pm.textScrollList]['FrameSelection'], edit=True, enable=False, removeAll=True)
             pm.button(self.inputs[pm.button]['FrameAdd'], edit=True, enable=False)
-            pm.radioButton(self.inputs[pm.radioButton]['LocationAbsolute'], edit=True, select=False, enable=False)
-            pm.radioButton(self.inputs[pm.radioButton]['LocationRelative'], edit=True, select=True, enable=False)
+            
+            for i in ('Loc', 'Rot'):
+                name_start = 'Frame{}'.format(i)
+                for j in ('Coordinates', 'Min', 'Max', 'Join', 'X', 'Y', 'Z'):
+                    pm.text(self.inputs[pm.text]['{}{}'.format(name_start, j)], edit=True, enable=False)
+                pm.radioButton(self.inputs[pm.radioButton]['{}Absolute'.format(name_start)], edit=True, select=False, enable=False)
+                pm.radioButton(self.inputs[pm.radioButton]['{}Relative'.format(name_start)], edit=True, select=True, enable=False)
+                
 
         else:            
             pm.textField(self.inputs[pm.textField]['GroupName'], edit=True, text=self._settings['GroupName'], enable=True)
@@ -1242,13 +1385,17 @@ class UserInterface(object):
             pm.checkBox(self.inputs[pm.checkBox]['OriginZ'], edit=True, value=self.data[self._settings['GroupName']]['Axis'][2], enable=True)
             
             if self._settings['CurrentFrame'] is not None:
-                location_absolute = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute
-            try:
-                pm.radioButton(self.inputs[pm.radioButton]['LocationAbsolute'], edit=True, select=location_absolute is True, enable=True)
-                pm.radioButton(self.inputs[pm.radioButton]['LocationRelative'], edit=True, select=location_absolute is not True, enable=True)
-            except NameError:
-                pm.radioButton(self.inputs[pm.radioButton]['LocationAbsolute'], edit=True, select=False, enable=False)
-                pm.radioButton(self.inputs[pm.radioButton]['LocationRelative'], edit=True, select=True, enable=False)
+                stored_data = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']]
+                stuff = {'Loc': stored_data.location_absolute,
+                         'Rot': stored_data.rotation_absolute}
+                for i in stuff:
+                    name_start = 'Frame{}'.format(i)
+                    try:
+                        pm.radioButton(self.inputs[pm.radioButton]['{}Absolute'.format(name_start)], edit=True, select=stuff[i] is True, enable=True)
+                        pm.radioButton(self.inputs[pm.radioButton]['{}Relative'.format(name_start)], edit=True, select=stuff[i] is not True, enable=True)
+                    except NameError:
+                        pm.radioButton(self.inputs[pm.radioButton]['{}Absolute'.format(name_start)], edit=True, select=False, enable=False)
+                        pm.radioButton(self.inputs[pm.radioButton]['{}Relative'.format(name_start)], edit=True, select=True, enable=False)
                 
             
             frames = ['Frame {}'.format(i) for i in sorted(self.data[self._settings['GroupName']]['Frames'].keys())]
@@ -1405,9 +1552,10 @@ class UserInterface(object):
         self._debug_print(sys._getframe().f_code.co_name, 'Objects: New selection, update visibility', indent=_debug)
         
         #If nothing is selected disable controls
-        if not self._settings['GroupName'] or self._settings['GroupName'] not in self.data:
+        if self._settings['GroupName'] is None or self._settings['GroupName'] not in self.data:
             pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], edit=True, enable=False)
             pm.button(self.inputs[pm.button]['ObjectSave'], edit=True, enable=False)
+            
         #Set button visibility if things have changed
         else:
             pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], edit=True, enable=True)
@@ -1466,7 +1614,6 @@ class UserInterface(object):
         
         pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], edit=True, removeAll=True)
         object_list = set(self.scene_objects)
-        
         try:
             selected_objects = [i for i in self.data[self._settings['GroupName']]['ObjectSelection'] if i in self.scene_objects]
         except KeyError:
@@ -1482,13 +1629,12 @@ class UserInterface(object):
         pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], edit=True, append=object_list, selectItem=selected_objects)
     
         #Register callbacks to redraw the selection if an object gets deleted
-        #Still a bit buggy
-        while self._settings['ScriptJobs']:
-            pm.scriptJob(kill=self._settings['ScriptJobs'].pop(0))
-        self._settings['ScriptJobs'] = []
         for i in self.scene_objects:
-            script_id = pm.scriptJob(attributeDeleted=('{}.v'.format(i), self._objects_refresh), parent=self.win, runOnce=True)
-            self._settings['ScriptJobs'].append(script_id)
+            try:
+                pm.getAttr('{}.aem'.format(i))
+            except pm.MayaAttributeError:
+                pm.addAttr(i, shortName='aem', longName='AssembleVisibilityMarker')
+            pm.scriptJob(attributeDeleted=('{}.aem'.format(i), self._objects_refresh), parent=self.win, runOnce=True)
             
     
     def _redraw_groups(self, _debug=0):
@@ -1514,15 +1660,16 @@ class UserInterface(object):
                 order_count += 1
             
             self._selection_clean(k, _debug=_debug + 1)
-            group_names.append(self._group_name_format(k))
+            group_names.append(self._group_name_format(k, _debug=_debug + 1))
         
         pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], edit=True, append=group_names)
         if self._settings['GroupName'] is not None:
-            pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], edit=True, selectItem=self._group_name_format(self._settings['GroupName']))
+            pm.textScrollList(self.inputs[pm.textScrollList]['Groups'], edit=True, selectItem=self._group_name_format(self._settings['GroupName'], _debug=_debug + 1))
         self._objects_select(_redraw=False, _debug=_debug + 1)
-        self._frame_value_join(_debug=_debug + 1)
+        self._frame_data_join(_debug=_debug + 1)
     
     def _group_name_format(self, k, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, "Group: Format name '{}'".format(k), indent=_debug)
         """Format the name of the group using the information inside it."""
         try:
             num_items = len(self._original_data[k]['ObjectSelection'])
@@ -1558,7 +1705,7 @@ class UserInterface(object):
     
     def _debug_print(self, func_name, description, indent=0):
         now = datetime.datetime.now()
-        print '[{h}:{m}:{s}]{i} {d} ({c}.{f})'.format(i=' '*indent, h=now.hour, m=now.minute, s=now.second, d=description, c='self', c2=self.__class__.__name__, f=func_name)
+        print '[{h}:{m}:{s}]{i} {d} ({c}.{f})'.format(i='  ' * indent, h=now.hour, m=now.minute, s=now.second, d=description, c='self', c2=self.__class__.__name__, f=func_name)
     
     def test(self):
         print 'callback test', self._settings['CurrentFrame']
