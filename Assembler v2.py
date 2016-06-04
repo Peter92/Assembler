@@ -507,286 +507,288 @@ class UserInterface(object):
         pm.scriptJob(event=('DagObjectCreated', self._objects_refresh), parent=self.win)
         
         with pm.rowColumnLayout(numberOfColumns=1):
-            with pm.rowColumnLayout(numberOfColumns=5):
-                with pm.rowColumnLayout(numberOfColumns=1):
-                    
+            with pm.rowColumnLayout(numberOfColumns=2): #Separate left and right
+                with pm.rowColumnLayout(numberOfColumns=1): #Make so buttons can be spread out
                     with pm.rowColumnLayout(numberOfColumns=3):
-                        pm.text(label='Group Selection', align='left')
-                        pm.text(label='')
-                        self.inputs[pm.textScrollList]['Groups'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100, selectCommand=pm.Callback(self._group_select_new))
-                        
-                        pm.text(label='')
-                        pm.text(label='')
-                        with pm.rowColumnLayout(numberOfColumns=9):
-                            self.inputs[pm.button]['GroupAdd'] = pm.button(label='+', command=pm.Callback(self._group_add))
-                            pm.text(label='')
-                            self.inputs[pm.button]['GroupRemove'] = pm.button(label='-', command=pm.Callback(self._group_delete))
-                            pm.text(label='')
-                            self.inputs[pm.button]['GroupMoveUp'] = pm.button(label='^', command=pm.Callback(self._group_up))
-                            pm.text(label='')
-                            self.inputs[pm.button]['GroupMoveDown'] = pm.button(label='v', command=pm.Callback(self._group_down))
-                            pm.text(label='')
-                            self.inputs[pm.button]['GroupClean'] = pm.button(label='Remove empty groups', command=pm.Callback(self._group_clean))
-                                      
-                        pm.text(label='Object Selection')
-                        pm.text(label='')
-                        self.inputs[pm.textScrollList]['AllObjects'] = pm.textScrollList(allowMultiSelection=True, append=['error'], height=200, selectCommand=pm.Callback(self._objects_select))
-                       
-                        pm.text(label='')      
-                        pm.text(label='')      
-                        with pm.rowColumnLayout(numberOfColumns=3):
-                            self.inputs[pm.button]['ObjectRefresh'] = pm.button(label='Refresh', command=pm.Callback(self._objects_refresh))
-                            pm.text(label='')
-                            self.inputs[pm.checkBox]['ObjectHide'] = pm.checkBox(label='Hide selected objects', value=self._settings['HideSelected'], changeCommand=pm.Callback(self._objects_hide))
-            
-                pm.text(label='')
+                        with pm.rowColumnLayout(numberOfColumns=1):
+                            
+                            with pm.rowColumnLayout(numberOfColumns=3):
+                                pm.text(label='Group Selection', align='left')
+                                pm.text(label='')
+                                self.inputs[pm.textScrollList]['Groups'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100, selectCommand=pm.Callback(self._group_select_new))
+                                
+                                pm.text(label='')
+                                pm.text(label='')
+                                with pm.rowColumnLayout(numberOfColumns=9):
+                                    self.inputs[pm.button]['GroupAdd'] = pm.button(label='+', command=pm.Callback(self._group_add))
+                                    pm.text(label='')
+                                    self.inputs[pm.button]['GroupRemove'] = pm.button(label='-', command=pm.Callback(self._group_delete))
+                                    pm.text(label='')
+                                    self.inputs[pm.button]['GroupMoveUp'] = pm.button(label='^', command=pm.Callback(self._group_up))
+                                    pm.text(label='')
+                                    self.inputs[pm.button]['GroupMoveDown'] = pm.button(label='v', command=pm.Callback(self._group_down))
+                                    pm.text(label='')
+                                    self.inputs[pm.button]['GroupClean'] = pm.button(label='Remove empty groups', command=pm.Callback(self._group_clean))
+                                              
+                                pm.text(label='Object Selection')
+                                pm.text(label='')
+                                self.inputs[pm.textScrollList]['AllObjects'] = pm.textScrollList(allowMultiSelection=True, append=['error'], height=200, selectCommand=pm.Callback(self._objects_select))
+                               
+                                pm.text(label='')      
+                                pm.text(label='')      
+                                with pm.rowColumnLayout(numberOfColumns=3):
+                                    self.inputs[pm.button]['ObjectRefresh'] = pm.button(label='Refresh', command=pm.Callback(self._objects_refresh))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['ObjectHide'] = pm.checkBox(label='Hide selected objects', value=self._settings['HideSelected'], changeCommand=pm.Callback(self._objects_hide))
                     
-                with pm.rowColumnLayout(numberOfColumns=1):
-                    with pm.rowColumnLayout(numberOfColumns=3):
-                        pm.text(label='Group Name', align='right')
                         pm.text(label='')
-                        self.inputs[pm.textField]['GroupName'] = pm.textField(text='error', changeCommand=pm.Callback(self._group_name_save))
-                        pm.text(label='Frame Offset', align='right')
-                        pm.text(label='')
-                        self.inputs[pm.floatSliderGrp]['FrameOffset'] = pm.floatSliderGrp(field=True, value=0, fieldMinValue=-float('inf'), fieldMaxValue=float('inf'), minValue=-1000, maxValue=1000, precision=2, changeCommand=pm.Callback(self._group_settings_save))
-                        pm.text(label='Random Offset', align='right')
-                        pm.text(label='')
-                        self.inputs[pm.floatSliderGrp]['RandomOffset'] = pm.floatSliderGrp(field=True, value=0, fieldMinValue=0, fieldMaxValue=float('inf'), precision=2, changeCommand=pm.Callback(self._group_settings_save))
-                        pm.text(label='Overshoot Distance', align='right')
-                        pm.text(label='')
-                        self.inputs[pm.floatSliderGrp]['BounceDistance'] = pm.floatSliderGrp(field=True, value=0, fieldMinValue=0, fieldMaxValue=float('inf'), precision=2, changeCommand=pm.Callback(self._group_settings_save))
-                        pm.text(label='')
-                        pm.text(label='')
-                        pm.text(label='')
-                        pm.text(label='Distance Per Frame', align='right')
-                        pm.text(label='')
-                        self.inputs[pm.floatSliderGrp]['DistanceUnits'] = pm.floatSliderGrp(field=True, value=100, fieldMinValue=0, fieldMaxValue=float('inf'), maxValue=1000, precision=2, changeCommand=pm.Callback(self._group_settings_save))
-                        pm.text(label='Animation Origin', align='right')
-                        pm.text(label='')
-                        with pm.rowColumnLayout(numberOfColumns=3):
-                            self.inputs[pm.textField]['OriginX'] = pm.textField(text='error', changeCommand=pm.Callback(self._group_settings_save))
-                            self.inputs[pm.textField]['OriginY'] = pm.textField(text='error', changeCommand=pm.Callback(self._group_settings_save))
-                            self.inputs[pm.textField]['OriginZ'] = pm.textField(text='error', changeCommand=pm.Callback(self._group_settings_save))
-                        pm.text(label='')
-                        pm.text(label='')
-                        self.inputs[pm.button]['OriginApply'] = pm.button(label='Use Current Selection', command=pm.Callback(self._set_origin_location))
-                        
-                        pm.text(label='Animation Axis', align='right')
-                        pm.text(label='')
-                        with pm.rowColumnLayout(numberOfColumns=5):
-                            self.inputs[pm.checkBox]['OriginX'] = pm.checkBox(label='X', value=False, changeCommand=pm.Callback(self._group_settings_save))
-                            pm.text(label='')
-                            self.inputs[pm.checkBox]['OriginY'] = pm.checkBox(label='Y', value=False, changeCommand=pm.Callback(self._group_settings_save))
-                            pm.text(label='')
-                            self.inputs[pm.checkBox]['OriginZ'] = pm.checkBox(label='Z', value=False, changeCommand=pm.Callback(self._group_settings_save))
-                        pm.text(label='')
-                        pm.text(label='')
-                        pm.text(label='')
-                        pm.text(label='Frame Selection', align='right')
-                        
-                        pm.text(label='')
-                        self.inputs[pm.textScrollList]['FrameSelection'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100, selectCommand=pm.Callback(self._frame_select_new))
-                        pm.text(label='')
-                        pm.text(label='')
-                        with pm.rowColumnLayout(numberOfColumns=3):
-                            self.inputs[pm.button]['FrameAdd'] = pm.button(label='+', command=pm.Callback(self._frame_add))
-                            pm.text(label='')
-                            self.inputs[pm.button]['FrameRemove'] = pm.button(label='-', command=pm.Callback(self._frame_remove))
+                            
+                        with pm.rowColumnLayout(numberOfColumns=1):
+                            with pm.rowColumnLayout(numberOfColumns=3):
+                                pm.text(label='Group Name', align='right')
+                                pm.text(label='')
+                                self.inputs[pm.textField]['GroupName'] = pm.textField(text='error', changeCommand=pm.Callback(self._group_name_save))
+                                pm.text(label='Frame Offset', align='right')
+                                pm.text(label='')
+                                self.inputs[pm.floatSliderGrp]['FrameOffset'] = pm.floatSliderGrp(field=True, value=0, fieldMinValue=-float('inf'), fieldMaxValue=float('inf'), minValue=-1000, maxValue=1000, precision=2, changeCommand=pm.Callback(self._group_settings_save))
+                                pm.text(label='Random Offset', align='right')
+                                pm.text(label='')
+                                self.inputs[pm.floatSliderGrp]['RandomOffset'] = pm.floatSliderGrp(field=True, value=0, fieldMinValue=0, fieldMaxValue=float('inf'), precision=2, changeCommand=pm.Callback(self._group_settings_save))
+                                pm.text(label='Overshoot Distance', align='right')
+                                pm.text(label='')
+                                self.inputs[pm.floatSliderGrp]['BounceDistance'] = pm.floatSliderGrp(field=True, value=0, fieldMinValue=0, fieldMaxValue=float('inf'), precision=2, changeCommand=pm.Callback(self._group_settings_save))
+                                pm.text(label='')
+                                pm.text(label='')
+                                pm.text(label='')
+                                pm.text(label='Distance Per Frame', align='right')
+                                pm.text(label='')
+                                self.inputs[pm.floatSliderGrp]['DistanceUnits'] = pm.floatSliderGrp(field=True, value=100, fieldMinValue=0, fieldMaxValue=float('inf'), maxValue=1000, precision=2, changeCommand=pm.Callback(self._group_settings_save))
+                                pm.text(label='Animation Origin', align='right')
+                                pm.text(label='')
+                                with pm.rowColumnLayout(numberOfColumns=3):
+                                    self.inputs[pm.textField]['OriginX'] = pm.textField(text='error', changeCommand=pm.Callback(self._group_settings_save))
+                                    self.inputs[pm.textField]['OriginY'] = pm.textField(text='error', changeCommand=pm.Callback(self._group_settings_save))
+                                    self.inputs[pm.textField]['OriginZ'] = pm.textField(text='error', changeCommand=pm.Callback(self._group_settings_save))
+                                pm.text(label='')
+                                pm.text(label='')
+                                self.inputs[pm.button]['OriginApply'] = pm.button(label='Use Current Selection', command=pm.Callback(self._set_origin_location))
+                                
+                                pm.text(label='Animation Axis', align='right')
+                                pm.text(label='')
+                                with pm.rowColumnLayout(numberOfColumns=5):
+                                    self.inputs[pm.checkBox]['OriginX'] = pm.checkBox(label='X', value=False, changeCommand=pm.Callback(self._group_settings_save))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['OriginY'] = pm.checkBox(label='Y', value=False, changeCommand=pm.Callback(self._group_settings_save))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['OriginZ'] = pm.checkBox(label='Z', value=False, changeCommand=pm.Callback(self._group_settings_save))
+                                pm.text(label='')
+                                pm.text(label='')
+                                pm.text(label='')
+                                pm.text(label='Frame Selection', align='right')
+                                
+                                pm.text(label='')
+                                self.inputs[pm.textScrollList]['FrameSelection'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100, selectCommand=pm.Callback(self._frame_select_new))
+                                pm.text(label='')
+                                pm.text(label='')
+                                with pm.rowColumnLayout(numberOfColumns=3):
+                                    self.inputs[pm.button]['FrameAdd'] = pm.button(label='+', command=pm.Callback(self._frame_add))
+                                    pm.text(label='')
+                                    self.inputs[pm.button]['FrameRemove'] = pm.button(label='-', command=pm.Callback(self._frame_remove))
 
-                pm.text(label='')
+
                     
-                with pm.scrollLayout(height=600):
-                    with pm.rowColumnLayout(numberOfColumns=1):
-                        with pm.rowColumnLayout(numberOfColumns=3):
-                            pm.text(label='Frame', align='right')
-                            pm.text(label='')
-                            self.inputs[pm.floatSliderGrp]['CurrentFrame'] = pm.floatSliderGrp(field=True, value=0, fieldMinValue=-float('inf'), fieldMaxValue=float('inf'), precision=2, changeCommand=pm.Callback(self._frame_change))
-                        
-                        with pm.frameLayout(label='Location', collapsable=False, collapse=False) as self.inputs[pm.frameLayout]['Location']:
-                            with pm.tabLayout(tabsVisible=False):
-                                with pm.rowColumnLayout(numberOfColumns=1):
-                                    self.inputs[pm.checkBox]['FrameLocDisable'] = pm.checkBox(label='Disable', value=True, changeCommand=pm.Callback(self._frame_data_disable))
-                                    with pm.rowColumnLayout(numberOfColumns=7):
-                                        self.inputs[pm.text]['FrameLocCoordinates'] = pm.text(label='Coordinates', align='right')
-                                        pm.text(label='')
-                                        self.inputs[pm.text]['FrameLocMin'] = pm.text(label='min', align='center')
-                                        pm.text(label='')
-                                        self.inputs[pm.text]['FrameLocMax'] = pm.text(label='max', align='center')
-                                        pm.text(label='')
-                                        self.inputs[pm.text]['FrameLocJoin'] = pm.text(label='join', align='center')
-                                        self.inputs[pm.text]['FrameLocX'] = pm.text(label='x', align='right')
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameLocXMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameLocXMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.checkBox]['FrameLocXJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
-                                        self.inputs[pm.text]['FrameLocY'] = pm.text(label='y', align='right')
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameLocYMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameLocYMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.checkBox]['FrameLocYJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
-                                        self.inputs[pm.text]['FrameLocZ'] = pm.text(label='z', align='right')
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameLocZMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameLocZMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.checkBox]['FrameLocZJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
-                                                                                
-                                    with pm.rowColumnLayout(numberOfColumns=5):
-                                        pm.radioCollection()
-                                        self.inputs[pm.radioButton]['FrameLocAbsolute'] = pm.radioButton(label='Absolute', onCommand=pm.Callback(self._relative_frame_change_radio))
-                                        with pm.rowColumnLayout(numberOfColumns=2): 
-                                            self.inputs[pm.radioButton]['FrameLocRelative'] = pm.radioButton(label='Relative to', select=True, onCommand=pm.Callback(self._relative_frame_change_radio))
-                                            self.inputs[pm.radioButton]['FrameLocList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
-                                            pm.menuItem(label='End Location')
-                                        pm.text(label='')
-                                        pm.text(label='')
-                                        pm.text(label='')
-                                        
-                                        
-                        with pm.frameLayout(label='Rotation', collapsable=False, collapse=False) as self.inputs[pm.frameLayout]['Rotation']:
-                            with pm.tabLayout(tabsVisible=False):
-                                with pm.rowColumnLayout(numberOfColumns=1):
-                                    self.inputs[pm.checkBox]['FrameRotDisable'] = pm.checkBox(label='Disable', value=True, changeCommand=pm.Callback(self._frame_data_disable))
-                                    with pm.rowColumnLayout(numberOfColumns=7):
-                                        self.inputs[pm.text]['FrameRotCoordinates'] = pm.text(label='Coordinates', align='right')
-                                        pm.text(label='')
-                                        self.inputs[pm.text]['FrameRotMin'] = pm.text(label='min', align='center')
-                                        pm.text(label='')
-                                        self.inputs[pm.text]['FrameRotMax'] = pm.text(label='max', align='center')
-                                        pm.text(label='')
-                                        self.inputs[pm.text]['FrameRotJoin'] = pm.text(label='join', align='center')
-                                        self.inputs[pm.text]['FrameRotX'] = pm.text(label='x', align='right')
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameRotXMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameRotXMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.checkBox]['FrameRotXJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
-                                        self.inputs[pm.text]['FrameRotY'] = pm.text(label='y', align='right')
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameRotYMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameRotYMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.checkBox]['FrameRotYJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
-                                        self.inputs[pm.text]['FrameRotZ'] = pm.text(label='z', align='right')
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameRotZMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameRotZMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.checkBox]['FrameRotZJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
-                                                        
-                                    with pm.rowColumnLayout(numberOfColumns=5):
-                                        pm.radioCollection()
-                                        self.inputs[pm.radioButton]['FrameRotAbsolute'] = pm.radioButton(label='Absolute', onCommand=pm.Callback(self._relative_frame_change_radio))
-                                        with pm.rowColumnLayout(numberOfColumns=2): 
-                                            self.inputs[pm.radioButton]['FrameRotRelative'] = pm.radioButton(label='Relative to', select=True, onCommand=pm.Callback(self._relative_frame_change_radio))
-                                            self.inputs[pm.radioButton]['FrameRotList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
-                                            pm.menuItem(label='End Rotation')
-                                        pm.text(label='')
-                                        pm.text(label='')
-                                        pm.text(label='')
-                                        
-                                        
-                        with pm.frameLayout(label='Scale', collapsable=False, collapse=False) as self.inputs[pm.frameLayout]['Scale']:
-                            with pm.tabLayout(tabsVisible=False):
-                                with pm.rowColumnLayout(numberOfColumns=1):
-                                    self.inputs[pm.checkBox]['FrameScaleDisable'] = pm.checkBox(label='Disable', value=True, changeCommand=pm.Callback(self._frame_data_disable))
-                                    with pm.rowColumnLayout(numberOfColumns=7):
-                                        self.inputs[pm.text]['FrameScaleCoordinates'] = pm.text(label='Coordinates', align='right')
-                                        pm.text(label='')
-                                        self.inputs[pm.text]['FrameScaleMin'] = pm.text(label='min', align='center')
-                                        pm.text(label='')
-                                        self.inputs[pm.text]['FrameScaleMax'] = pm.text(label='max', align='center')
-                                        pm.text(label='')
-                                        self.inputs[pm.text]['FrameScaleJoin'] = pm.text(label='join', align='center')
-                                        self.inputs[pm.text]['FrameScaleX'] = pm.text(label='x', align='right')
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameScaleXMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameScaleXMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.checkBox]['FrameScaleXJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
-                                        self.inputs[pm.text]['FrameScaleY'] = pm.text(label='y', align='right')
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameScaleYMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameScaleYMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.checkBox]['FrameScaleYJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
-                                        self.inputs[pm.text]['FrameScaleZ'] = pm.text(label='z', align='right')
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameScaleZMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameScaleZMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.checkBox]['FrameScaleZJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
-                                                        
-                                    with pm.rowColumnLayout(numberOfColumns=5):
-                                        pm.radioCollection()
-                                        self.inputs[pm.radioButton]['FrameScaleAbsolute'] = pm.radioButton(label='Absolute', onCommand=pm.Callback(self._relative_frame_change_radio))
-                                        with pm.rowColumnLayout(numberOfColumns=2): 
-                                            self.inputs[pm.radioButton]['FrameScaleRelative'] = pm.radioButton(label='Relative to', select=True, onCommand=pm.Callback(self._relative_frame_change_radio))
-                                            self.inputs[pm.radioButton]['FrameScaleList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
-                                            pm.menuItem(label='End Scale')
-                                        pm.text(label='')
-                                        pm.text(label='')
-                                        pm.text(label='')
-                                        
-                                        
-                        with pm.frameLayout(label='Visibility', collapsable=False, collapse=False) as self.inputs[pm.frameLayout]['Visibility']:
-                            with pm.tabLayout(tabsVisible=False):
-                                with pm.rowColumnLayout(numberOfColumns=1):
-                                    self.inputs[pm.checkBox]['FrameVisDisable'] = pm.checkBox(label='Disable', value=True, changeCommand=pm.Callback(self._frame_data_disable))
-                                    with pm.rowColumnLayout(numberOfColumns=7):
-                                        self.inputs[pm.text]['FrameVisCoordinates'] = pm.text(label='Coordinates', align='right', visible=False)
-                                        pm.text(label='')
-                                        self.inputs[pm.text]['FrameVisMin'] = pm.text(label='min', align='center')
-                                        pm.text(label='')
-                                        self.inputs[pm.text]['FrameVisMax'] = pm.text(label='max', align='center')
-                                        pm.text(label='')
-                                        self.inputs[pm.text]['FrameVisJoin'] = pm.text(label='join', align='center')
-                                        self.inputs[pm.text]['FrameVisX'] = pm.text(label='x', align='right')
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameVisXMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.textField]['FrameVisXMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
-                                        pm.text(label='')
-                                        self.inputs[pm.checkBox]['FrameVisXJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
-                                                        
-                                    with pm.rowColumnLayout(numberOfColumns=5):
-                                        pm.radioCollection()
-                                        self.inputs[pm.radioButton]['FrameVisAbsolute'] = pm.radioButton(label='Absolute', onCommand=pm.Callback(self._relative_frame_change_radio))
-                                        with pm.rowColumnLayout(numberOfColumns=2): 
-                                            self.inputs[pm.radioButton]['FrameVisRelative'] = pm.radioButton(label='Relative to', select=True, onCommand=pm.Callback(self._relative_frame_change_radio))
-                                            self.inputs[pm.radioButton]['FrameVisList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
-                                            pm.menuItem(label='End Visibility')
-                                        pm.text(label='')
-                                        pm.text(label='')
-                                        pm.text(label='')
+                    with pm.rowColumnLayout(numberOfColumns=5):
+                        button_width = 100
+                        button_padding = 10
+                        pm.text(label=' ' * button_padding)
+                        pm.text(label=' ' * button_width)
+                        pm.text(label=' ' * button_padding)
+                        pm.text(label=' ' * button_width)
+                        pm.text(label=' ' * button_padding)
+                        pm.text(label='')
+                        self.inputs[pm.button]['UIRefresh'] = pm.button(label='Reload', command=pm.Callback(self._refresh_ui))
+                        pm.text(label='')
+                        self.inputs[pm.button]['ObjectSave'] = pm.button(label='Save All', command=pm.Callback(self._save_all))
+                        pm.text(label='')
+                        pm.text(label='')
+                        pm.button(label='Print Info', command=pm.Callback(self.generate_animation))
+                        pm.text(label='')
+
                     
-            with pm.rowColumnLayout(numberOfColumns=5):
-                button_width = 50
-                button_padding = 10
-                pm.text(label=' ' * button_padding)
-                pm.text(label=' ' * button_width)
-                pm.text(label=' ' * button_padding)
-                pm.text(label=' ' * button_width)
-                pm.text(label=' ' * button_padding)
-                pm.text(label='')
-                self.inputs[pm.button]['UIRefresh'] = pm.button(label='Reload', command=pm.Callback(self._refresh_ui))
-                pm.text(label='')
-                self.inputs[pm.button]['ObjectSave'] = pm.button(label='Save All', command=pm.Callback(self._save_all))
-                pm.text(label='')
-                pm.text(label='')
-                pm.button(label='Print Info', command=pm.Callback(self.generate_animation))
-                pm.text(label='')
+                with pm.rowColumnLayout(numberOfColumns=1):
+                    with pm.rowColumnLayout(numberOfColumns=3):
+                        pm.text(label='Frame', align='right')
+                        pm.text(label='')
+                        self.inputs[pm.floatSliderGrp]['CurrentFrame'] = pm.floatSliderGrp(field=True, value=0, fieldMinValue=-float('inf'), fieldMaxValue=float('inf'), precision=2, changeCommand=pm.Callback(self._frame_change))
+                    
+                    with pm.frameLayout(label='Location', collapsable=False, collapse=False) as self.inputs[pm.frameLayout]['Location']:
+                        with pm.tabLayout(tabsVisible=False):
+                            with pm.rowColumnLayout(numberOfColumns=1):
+                                self.inputs[pm.checkBox]['FrameLocDisable'] = pm.checkBox(label='Disable', value=True, changeCommand=pm.Callback(self._frame_data_disable))
+                                with pm.rowColumnLayout(numberOfColumns=7):
+                                    self.inputs[pm.text]['FrameLocCoordinates'] = pm.text(label='Coordinates', align='right')
+                                    pm.text(label='')
+                                    self.inputs[pm.text]['FrameLocMin'] = pm.text(label='min', align='center')
+                                    pm.text(label='')
+                                    self.inputs[pm.text]['FrameLocMax'] = pm.text(label='max', align='center')
+                                    pm.text(label='')
+                                    self.inputs[pm.text]['FrameLocJoin'] = pm.text(label='join', align='center')
+                                    self.inputs[pm.text]['FrameLocX'] = pm.text(label='x', align='right')
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameLocXMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameLocXMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['FrameLocXJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                    self.inputs[pm.text]['FrameLocY'] = pm.text(label='y', align='right')
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameLocYMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameLocYMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['FrameLocYJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                    self.inputs[pm.text]['FrameLocZ'] = pm.text(label='z', align='right')
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameLocZMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameLocZMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['FrameLocZJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                                                            
+                                with pm.rowColumnLayout(numberOfColumns=5):
+                                    pm.radioCollection()
+                                    self.inputs[pm.radioButton]['FrameLocAbsolute'] = pm.radioButton(label='Absolute', onCommand=pm.Callback(self._relative_frame_change_radio))
+                                    with pm.rowColumnLayout(numberOfColumns=2): 
+                                        self.inputs[pm.radioButton]['FrameLocRelative'] = pm.radioButton(label='Relative to', select=True, onCommand=pm.Callback(self._relative_frame_change_radio))
+                                        self.inputs[pm.radioButton]['FrameLocList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
+                                        pm.menuItem(label='End Location')
+                                    pm.text(label='')
+                                    pm.text(label='')
+                                    pm.text(label='')
+                                    
+                                    
+                    with pm.frameLayout(label='Rotation', collapsable=False, collapse=False) as self.inputs[pm.frameLayout]['Rotation']:
+                        with pm.tabLayout(tabsVisible=False):
+                            with pm.rowColumnLayout(numberOfColumns=1):
+                                self.inputs[pm.checkBox]['FrameRotDisable'] = pm.checkBox(label='Disable', value=True, changeCommand=pm.Callback(self._frame_data_disable))
+                                with pm.rowColumnLayout(numberOfColumns=7):
+                                    self.inputs[pm.text]['FrameRotCoordinates'] = pm.text(label='Coordinates', align='right')
+                                    pm.text(label='')
+                                    self.inputs[pm.text]['FrameRotMin'] = pm.text(label='min', align='center')
+                                    pm.text(label='')
+                                    self.inputs[pm.text]['FrameRotMax'] = pm.text(label='max', align='center')
+                                    pm.text(label='')
+                                    self.inputs[pm.text]['FrameRotJoin'] = pm.text(label='join', align='center')
+                                    self.inputs[pm.text]['FrameRotX'] = pm.text(label='x', align='right')
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameRotXMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameRotXMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['FrameRotXJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                    self.inputs[pm.text]['FrameRotY'] = pm.text(label='y', align='right')
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameRotYMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameRotYMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['FrameRotYJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                    self.inputs[pm.text]['FrameRotZ'] = pm.text(label='z', align='right')
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameRotZMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameRotZMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['FrameRotZJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                                    
+                                with pm.rowColumnLayout(numberOfColumns=5):
+                                    pm.radioCollection()
+                                    self.inputs[pm.radioButton]['FrameRotAbsolute'] = pm.radioButton(label='Absolute', onCommand=pm.Callback(self._relative_frame_change_radio))
+                                    with pm.rowColumnLayout(numberOfColumns=2): 
+                                        self.inputs[pm.radioButton]['FrameRotRelative'] = pm.radioButton(label='Relative to', select=True, onCommand=pm.Callback(self._relative_frame_change_radio))
+                                        self.inputs[pm.radioButton]['FrameRotList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
+                                        pm.menuItem(label='End Rotation')
+                                    pm.text(label='')
+                                    pm.text(label='')
+                                    pm.text(label='')
+                                    
+                                    
+                    with pm.frameLayout(label='Scale', collapsable=False, collapse=False) as self.inputs[pm.frameLayout]['Scale']:
+                        with pm.tabLayout(tabsVisible=False):
+                            with pm.rowColumnLayout(numberOfColumns=1):
+                                self.inputs[pm.checkBox]['FrameScaleDisable'] = pm.checkBox(label='Disable', value=True, changeCommand=pm.Callback(self._frame_data_disable))
+                                with pm.rowColumnLayout(numberOfColumns=7):
+                                    self.inputs[pm.text]['FrameScaleCoordinates'] = pm.text(label='Coordinates', align='right')
+                                    pm.text(label='')
+                                    self.inputs[pm.text]['FrameScaleMin'] = pm.text(label='min', align='center')
+                                    pm.text(label='')
+                                    self.inputs[pm.text]['FrameScaleMax'] = pm.text(label='max', align='center')
+                                    pm.text(label='')
+                                    self.inputs[pm.text]['FrameScaleJoin'] = pm.text(label='join', align='center')
+                                    self.inputs[pm.text]['FrameScaleX'] = pm.text(label='x', align='right')
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameScaleXMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameScaleXMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['FrameScaleXJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                    self.inputs[pm.text]['FrameScaleY'] = pm.text(label='y', align='right')
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameScaleYMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameScaleYMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['FrameScaleYJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                    self.inputs[pm.text]['FrameScaleZ'] = pm.text(label='z', align='right')
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameScaleZMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameScaleZMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['FrameScaleZJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                                    
+                                with pm.rowColumnLayout(numberOfColumns=5):
+                                    pm.radioCollection()
+                                    self.inputs[pm.radioButton]['FrameScaleAbsolute'] = pm.radioButton(label='Absolute', onCommand=pm.Callback(self._relative_frame_change_radio))
+                                    with pm.rowColumnLayout(numberOfColumns=2): 
+                                        self.inputs[pm.radioButton]['FrameScaleRelative'] = pm.radioButton(label='Relative to', select=True, onCommand=pm.Callback(self._relative_frame_change_radio))
+                                        self.inputs[pm.radioButton]['FrameScaleList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
+                                        pm.menuItem(label='End Scale')
+                                    pm.text(label='')
+                                    pm.text(label='')
+                                    pm.text(label='')
+                                    
+                                    
+                    with pm.frameLayout(label='Visibility', collapsable=False, collapse=False) as self.inputs[pm.frameLayout]['Visibility']:
+                        with pm.tabLayout(tabsVisible=False):
+                            with pm.rowColumnLayout(numberOfColumns=1):
+                                self.inputs[pm.checkBox]['FrameVisDisable'] = pm.checkBox(label='Disable', value=True, changeCommand=pm.Callback(self._frame_data_disable))
+                                with pm.rowColumnLayout(numberOfColumns=7):
+                                    self.inputs[pm.text]['FrameVisCoordinates'] = pm.text(label='Coordinates', align='right', visible=False)
+                                    pm.text(label='')
+                                    self.inputs[pm.text]['FrameVisMin'] = pm.text(label='min', align='center')
+                                    pm.text(label='')
+                                    self.inputs[pm.text]['FrameVisMax'] = pm.text(label='max', align='center')
+                                    pm.text(label='')
+                                    self.inputs[pm.text]['FrameVisJoin'] = pm.text(label='join', align='center')
+                                    self.inputs[pm.text]['FrameVisX'] = pm.text(label='x', align='right', visible=False)
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameVisXMin'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.textField]['FrameVisXMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['FrameVisXJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
+                                                    
+                                with pm.rowColumnLayout(numberOfColumns=5):
+                                    pm.radioCollection()
+                                    self.inputs[pm.radioButton]['FrameVisAbsolute'] = pm.radioButton(label='Absolute', onCommand=pm.Callback(self._relative_frame_change_radio))
+                                    with pm.rowColumnLayout(numberOfColumns=2): 
+                                        self.inputs[pm.radioButton]['FrameVisRelative'] = pm.radioButton(label='Relative to', select=True, onCommand=pm.Callback(self._relative_frame_change_radio))
+                                        self.inputs[pm.radioButton]['FrameVisList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
+                                        pm.menuItem(label='End Visibility')
+                                    pm.text(label='')
+                                    pm.text(label='')
+                                    pm.text(label='')
 
         self._objects_select(_debug=_debug + 1)
         self._group_select_new(_debug=_debug + 1)
@@ -976,11 +978,12 @@ class UserInterface(object):
             dropdown_options = pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], query=True, itemListLong=True)
             for j in dropdown_options[1:]:
                 pm.deleteUI(j)
-                
+            
             if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
-                for j in sorted(self.data[self._settings['GroupName']]['Frames'].keys()):
-                    if j != self._settings['CurrentFrame']:
-                        pm.menuItem(label=self._frame_dropdown_format(j), parent=self.inputs[pm.radioButton]['{}List'.format(name_start)])
+                
+                #Rebuild menu
+                for frame in sorted(self._relative_frame_depth_search(self._settings['CurrentFrame'], i)):
+                    pm.menuItem(label=self._frame_dropdown_format(frame), parent=self.inputs[pm.radioButton]['{}List'.format(name_start)])
                         
                 if stuff[i][0] is True:
                     #Get temporary value
@@ -1002,6 +1005,42 @@ class UserInterface(object):
             #Disable frame controls
             else:
                 pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, enable=False, value=stuff[i][2])
+    
+    
+    def _relative_frame_depth_search(self, current_frame, i, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Dropdown depth search', indent=_debug)
+        
+        allowed_frames = []
+    
+        for frame in self.data[self._settings['GroupName']]['Frames']:
+            
+            if frame == current_frame:
+                continue
+    
+            sequence = []
+            next_frame = frame
+            
+            while True:
+                
+                if i == 'Loc':
+                    next_frame = self.data[self._settings['GroupName']]['Frames'][next_frame].location_absolute
+                elif i == 'Rot':
+                    next_frame = self.data[self._settings['GroupName']]['Frames'][next_frame].rotation_absolute
+                elif i == 'Scale':
+                    next_frame = self.data[self._settings['GroupName']]['Frames'][next_frame].scale_absolute
+                elif i == 'Vis':
+                    next_frame = self.data[self._settings['GroupName']]['Frames'][next_frame].visibility_absolute
+                
+                if next_frame is not None and next_frame is not True:
+                    sequence.append(next_frame)
+                else:
+                    break
+                    
+            if current_frame not in sequence:
+                allowed_frames.append(frame)
+    
+        return allowed_frames
+        
     
     def _frame_dropdown_format(self, i, undo=False, _debug=0):
         """Format the name of the frames."""
@@ -1119,7 +1158,7 @@ class UserInterface(object):
                     if scale is None:
                         raise KeyError()
                 except KeyError:
-                    scale = (0.0, 0.0, 0.0)
+                    scale = (1.0, 1.0, 1.0)
                     
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_coordinates = scale
             
@@ -1138,7 +1177,7 @@ class UserInterface(object):
                     if visibility is None:
                         raise KeyError()
                 except KeyError:
-                    visibility = 0.0
+                    visibility = 1.0
                 
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].visibility_coordinates = visibility
         if _redraw:
@@ -1267,9 +1306,9 @@ class UserInterface(object):
         
         frame_name = 'Frame {}'.format(frame)
         if self._settings['CurrentFrame'] == min(self.data[self._settings['GroupName']]['Frames'].keys()):
-            frame_name += ' (start)'
+            frame_name += ' - start'
         elif self._settings['CurrentFrame'] == max(self.data[self._settings['GroupName']]['Frames'].keys()):
-            frame_name += ' (end)'
+            frame_name += ' - end (current location)'
         return frame_name
     
     def _frame_select(self, refresh=True, _debug=0):
@@ -1432,14 +1471,14 @@ class UserInterface(object):
                 if scale is None:
                     raise KeyError()
             except KeyError:
-                scale = (0.0, 0.0, 0.0)
+                scale = (1.0, 1.0, 1.0)
         if visibility is None:
             try:
                 visibility = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['Visibility']
                 if visibility is None:
                     raise KeyError()
             except KeyError:
-                visibility = 0.0
+                visibility = 1.0
         
         stuff = {'Loc': (location, location_absolute),
                  'Rot': (rotation, rotation_absolute),
@@ -1849,6 +1888,7 @@ class UserInterface(object):
             self._redraw_groups(_debug=_debug + 1)
     
     def _visibility_save(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Save: Update visibility', indent=_debug)
         
         changed = False
         
@@ -1865,7 +1905,6 @@ class UserInterface(object):
         if not changed:
             changed = sorted(self.data.keys()) != sorted(self._original_data.keys())
             
-        self._debug_print(sys._getframe().f_code.co_name, 'Save: Toggle button visibility ({})'.format(changed), indent=_debug)
 
         pm.button(self.inputs[pm.button]['ObjectSave'], edit=True, enable=changed)
     
@@ -1884,10 +1923,9 @@ class UserInterface(object):
     
     def _objects_hide(self, _debug=0):
         """Toggle if already selected objects should be hidden."""
+        self._debug_print(sys._getframe().f_code.co_name, 'Selection: Toggle hide', indent=_debug)
         
         self._settings['HideSelected'] = pm.checkBox(self.inputs[pm.checkBox]['ObjectHide'], query=True, value=True)
-        self._debug_print(sys._getframe().f_code.co_name, 'Selection: Hide ({})'.format(self._settings['HideSelected']), indent=_debug)
-        
         self._redraw_selection(_debug=_debug + 1)
         
     def _redraw_selection(self, _debug=0):
@@ -1987,17 +2025,19 @@ class UserInterface(object):
         return len(self.data[group]['ObjectSelection']) == len(original_group)
     
     def _debug_print(self, func_name, description, indent=0):
+        if not DEBUG_UI:
+            return
         now = datetime.datetime.now()
         test = None
-        print '[{h}:{m}:{s}]{i} {d} ({c}.{f})'.format(i='  ' * indent, h=now.hour, m=now.minute, s=now.second, d=description, c='self', c2=self.__class__.__name__, f=func_name, t=test)
+        print '[{h:02}:{m:02}:{s:02}:{n:03}]{i} {d} ({c}.{f})'.format(i='  ' * indent, h=now.hour, m=now.minute, s=now.second, n=now.microsecond // 1000, d=description, c='self', c2=self.__class__.__name__, f=func_name, t=test)
     
-    def test(self):
-        print 'callback test', self._settings['CurrentFrame']
+        
 '''
 SelectionChanged - update last frame coordinates
 NameChanged - update any selections
 DagObjectCreated
 '''
+DEBUG_UI = True
 pm.fileInfo['AssemblyScript'] = StoreData().save({})
 a = SetGroup('test')
 a.selection=['pCube1', 'pCone1']
