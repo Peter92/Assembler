@@ -10,7 +10,15 @@ import datetime
 import random
 '''
 to do:
+    stop things saving if closing window
+    calculate distance per frame stuff
     disable distance per frame if no axis
+    hitting remove empty groups should not select if none selected
+    search for objects
+    callbacks:
+        SelectionChanged - update last frame coordinates
+        NameChanged - update any selections
+        (new scene created) - reload user interface
 '''
 
 def get_defaultdict():
@@ -421,8 +429,7 @@ class SetGroup(_MovementInfo):
         
         self.frame = defaultdict(_MovementInfo)
         self.frame[0.0]
-        self.frame[5.0]
-        self.frame[10.0]
+        self.frame[20.0]
         
         self.list_order = list_order
     
@@ -1806,6 +1813,7 @@ class UserInterface(object):
                 self._settings['GroupName'] = k
                 self._group_delete(_debug=_debug + 1)
         for k in new_keys:
+            v = self.data[k]
             if not len(v['ObjectSelection']):
                 self._settings['GroupName'] = k
                 self._group_delete(_debug=_debug + 1)
@@ -2131,126 +2139,125 @@ def create_animation(object, keyframes, offset, bounce):
         object_frames -= valid_frames
         
     #Key location values
-    for frame in frame_order:
-        data = keyframes[frame]
-        if data.location_data is not None or frame == end_frame:
-            if frame == end_frame:
-                new_location = object_location
-            elif data.location_absolute is True:
-                new_location = []
-                for i in data.location_data:
-                    try:
-                        new_location.append(random.uniform(*i))
-                    except TypeError:
-                        new_location.append(i)
-            else:
-                location1 = []
-                for i in data.location_data:
-                    try:
-                        location1.append(random.uniform(*i))
-                    except TypeError:
-                        location1.append(i)
-                if data.location_absolute is None:
-                    location2 = object_location
+    if len([frame for frame in frame_order if keyframes[frame].location_data is not None or frame == end_frame]) > 1:
+        for frame in frame_order:
+            data = keyframes[frame]
+            if data.location_data is not None or frame == end_frame:
+                if frame == end_frame:
+                    new_location = object_location
+                elif data.location_absolute is True:
+                    new_location = []
+                    for i in data.location_data:
+                        try:
+                            new_location.append(random.uniform(*i))
+                        except TypeError:
+                            new_location.append(i)
                 else:
-                    location2 = pm.getAttr(object + '.translate', time=data.location_absolute + offset)
-                new_location = tuple(i + j for i, j in zip(location1, location2))
-            pm.setKeyframe(object, attribute='tx', value=new_location[0], time=frame + offset)
-            pm.setKeyframe(object, attribute='ty', value=new_location[1], time=frame + offset)
-            pm.setKeyframe(object, attribute='tz', value=new_location[2], time=frame + offset)
+                    location1 = []
+                    for i in data.location_data:
+                        try:
+                            location1.append(random.uniform(*i))
+                        except TypeError:
+                            location1.append(i)
+                    if data.location_absolute is None:
+                        location2 = object_location
+                    else:
+                        location2 = pm.getAttr(object + '.translate', time=data.location_absolute + offset)
+                    new_location = tuple(i + j for i, j in zip(location1, location2))
+                pm.setKeyframe(object, attribute='tx', value=new_location[0], time=frame + offset)
+                pm.setKeyframe(object, attribute='ty', value=new_location[1], time=frame + offset)
+                pm.setKeyframe(object, attribute='tz', value=new_location[2], time=frame + offset)
     
     #Key rotation values
-    for frame in frame_order:
-        data = keyframes[frame]
-        if data.rotation_data is not None or frame == end_frame:
-            if frame == end_frame:
-                new_rotation = object_rotation
-            elif data.rotation_absolute is True:
-                new_rotation = []
-                for i in data.rotation_data:
-                    try:
-                        new_rotation.append(random.uniform(*i))
-                    except TypeError:
-                        new_rotation.append(i)
-            else:
-                rotation1 = []
-                for i in data.rotation_data:
-                    try:
-                        rotation1.append(random.uniform(*i))
-                    except TypeError:
-                        rotation1.append(i)
-                if data.rotation_absolute is None:
-                    rotation2 = object_rotation
+    if len([frame for frame in frame_order if keyframes[frame].rotation_data is not None or frame == end_frame]) > 1:
+        for frame in frame_order:
+            data = keyframes[frame]
+            if data.rotation_data is not None or frame == end_frame:
+                if frame == end_frame:
+                    new_rotation = object_rotation
+                elif data.rotation_absolute is True:
+                    new_rotation = []
+                    for i in data.rotation_data:
+                        try:
+                            new_rotation.append(random.uniform(*i))
+                        except TypeError:
+                            new_rotation.append(i)
                 else:
-                    rotation2 = pm.getAttr(object + '.translate', time=data.rotation_absolute + offset)
-                new_rotation = tuple(i + j for i, j in zip(rotation1, rotation2))
-            pm.setKeyframe(object, attribute='rx', value=new_rotation[0], time=frame + offset)
-            pm.setKeyframe(object, attribute='ry', value=new_rotation[1], time=frame + offset)
-            pm.setKeyframe(object, attribute='rz', value=new_rotation[2], time=frame + offset)
+                    rotation1 = []
+                    for i in data.rotation_data:
+                        try:
+                            rotation1.append(random.uniform(*i))
+                        except TypeError:
+                            rotation1.append(i)
+                    if data.rotation_absolute is None:
+                        rotation2 = object_rotation
+                    else:
+                        rotation2 = pm.getAttr(object + '.translate', time=data.rotation_absolute + offset)
+                    new_rotation = tuple(i + j for i, j in zip(rotation1, rotation2))
+                pm.setKeyframe(object, attribute='rx', value=new_rotation[0], time=frame + offset)
+                pm.setKeyframe(object, attribute='ry', value=new_rotation[1], time=frame + offset)
+                pm.setKeyframe(object, attribute='rz', value=new_rotation[2], time=frame + offset)
     
     #Key scale values
-    for frame in frame_order:
-        data = keyframes[frame]
-        if data.scale_data is not None or frame == end_frame:
-            if frame == end_frame:
-                new_scale = object_scale
-            elif data.scale_absolute is True:
-                new_scale = []
-                for i in data.scale_data:
-                    try:
-                        new_scale.append(random.uniform(*i))
-                    except TypeError:
-                        new_scale.append(i)
-            else:
-                scale1 = []
-                for i in data.scale_data:
-                    try:
-                        scale1.append(random.uniform(*i))
-                    except TypeError:
-                        scale1.append(i)
-                if data.scale_absolute is None:
-                    scale2 = object_scale
+    if len([frame for frame in frame_order if keyframes[frame].scale_data is not None or frame == end_frame]) > 1:
+        for frame in frame_order:
+            data = keyframes[frame]
+            if data.scale_data is not None or frame == end_frame:
+                if frame == end_frame:
+                    new_scale = object_scale
+                elif data.scale_absolute is True:
+                    new_scale = []
+                    for i in data.scale_data:
+                        try:
+                            new_scale.append(random.uniform(*i))
+                        except TypeError:
+                            new_scale.append(i)
                 else:
-                    scale2 = pm.getAttr(object + '.translate', time=data.scale_absolute + offset)
-                new_scale = tuple(i * j for i, j in zip(scale1, scale2))
-            pm.setKeyframe(object, attribute='rx', value=new_scale[0], time=frame + offset)
-            pm.setKeyframe(object, attribute='ry', value=new_scale[1], time=frame + offset)
-            pm.setKeyframe(object, attribute='rz', value=new_scale[2], time=frame + offset)
+                    scale1 = []
+                    for i in data.scale_data:
+                        try:
+                            scale1.append(random.uniform(*i))
+                        except TypeError:
+                            scale1.append(i)
+                    if data.scale_absolute is None:
+                        scale2 = object_scale
+                    else:
+                        scale2 = pm.getAttr(object + '.translate', time=data.scale_absolute + offset)
+                    new_scale = tuple(i * j for i, j in zip(scale1, scale2))
+                pm.setKeyframe(object, attribute='rx', value=new_scale[0], time=frame + offset)
+                pm.setKeyframe(object, attribute='ry', value=new_scale[1], time=frame + offset)
+                pm.setKeyframe(object, attribute='rz', value=new_scale[2], time=frame + offset)
     
     #Key visibility values
-    for frame in frame_order:
-        data = keyframes[frame]
-        if data.visibility_data is not None or frame == end_frame:
-            if frame == end_frame:
-                new_visibility = object_visibility
-            elif data.visibility_absolute is True:
-                try:
-                    new_visibility = random.uniform(*data.visibility_data)
-                except TypeError:
-                    new_visibility = data.visibility_data
-            else:
-                try:
-                    visibility1 = random.uniform(*data.visibility_data)
-                except TypeError:
-                    visibility1 = data.visibility_data
-                if data.visibility_absolute is None:
-                    visibility2 = object_visibility
+    if len([frame for frame in frame_order if keyframes[frame].visibility_data is not None or frame == end_frame]) > 1:
+        for frame in frame_order:
+            data = keyframes[frame]
+            if data.visibility_data is not None or frame == end_frame:
+                if frame == end_frame:
+                    new_visibility = object_visibility
+                elif data.visibility_absolute is True:
+                    try:
+                        new_visibility = random.uniform(*data.visibility_data)
+                    except TypeError:
+                        new_visibility = data.visibility_data
                 else:
-                    visibility2 = pm.getAttr(object + '.translate', time=data.visibility_absolute + offset)
-                new_visibility = visibility1 + visibility2
-            new_visibility = min(1, max(0, new_visibility))
-            pm.setKeyframe(object, attribute='v', value=new_visibility, time=frame + offset)
-    if frame_order:
+                    try:
+                        visibility1 = random.uniform(*data.visibility_data)
+                    except TypeError:
+                        visibility1 = data.visibility_data
+                    if data.visibility_absolute is None:
+                        visibility2 = object_visibility
+                    else:
+                        visibility2 = pm.getAttr(object + '.translate', time=data.visibility_absolute + offset)
+                    new_visibility = visibility1 + visibility2
+                new_visibility = min(1, max(0, new_visibility))
+                pm.setKeyframe(object, attribute='v', value=new_visibility, time=frame + offset)
         pm.keyTangent('{}.v'.format(object), edit=True, itt='auto', ott='auto')
         pm.cutKey(maya_object.getShape(), attribute='v', clear=True)
         pm.setAttr('{}.v'.format(maya_object.getShape()), True)
     
-'''
-SelectionChanged - update last frame coordinates
-NameChanged - update any selections
-DagObjectCreated
-'''
 DEBUG_UI = False
+'''
 pm.fileInfo['AssemblyScript'] = StoreData().save({})
 a = SetGroup('test')
 a.selection=['pCube1', 'pCone1']
@@ -2258,4 +2265,5 @@ a.save()
 for i in range(2):
     a = SetGroup('test'+str(i))
     a.save()
+    '''
 UserInterface().display()
