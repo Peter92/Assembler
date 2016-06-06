@@ -954,9 +954,9 @@ class UserInterface(object):
                         old_visibility = None
                     self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].visibility_absolute = old_visibility
         
+        self._frame_data_disable(_redraw=False, _debug=_debug + 1)
         self._relative_frame_redraw(_debug=_debug + 1)
         self._relative_frame_change_dropdown(_debug=_debug + 1)
-        self._frame_data_disable(_redraw=False, _debug=_debug + 1)
     
     def _relative_frame_redraw(self, _debug=0):
         self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Dropdown redraw', indent=_debug)
@@ -988,7 +988,7 @@ class UserInterface(object):
             if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
                 
                 #Rebuild menu
-                valid_frames = self._relative_frame_depth_search(self._settings['CurrentFrame'], i)
+                valid_frames = self._relative_frame_depth_search(self._settings['CurrentFrame'], i, _debug=_debug + 1)
                 for frame in sorted(valid_frames):
                     pm.menuItem(label=self._frame_dropdown_format(frame), parent=self.inputs[pm.radioButton]['{}List'.format(name_start)])
                         
