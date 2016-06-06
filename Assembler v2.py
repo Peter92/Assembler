@@ -868,7 +868,7 @@ class UserInterface(object):
             if self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].visibility_absolute is not True:
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].visibility_absolute = selected_frame
             self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['VisibilityAbsolute'] = selected_frame
-        self._redraw_groups()
+        self._redraw_groups(_debug=_debug + 1)
     
     def _relative_frame_change_radio(self, changed_keyframe=False, _debug=0):
         self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Radio update', indent=_debug)
@@ -879,9 +879,12 @@ class UserInterface(object):
                 location_is_absolute = pm.radioButton(self.inputs[pm.radioButton]['FrameLocAbsolute'], query=True, select=True)
                 location_is_relative = pm.radioButton(self.inputs[pm.radioButton]['FrameLocRelative'], query=True, select=True)
                 
+                valid_frames = self._relative_frame_depth_search(self._settings['CurrentFrame'], 'Loc', _debug=_debug + 1)
+                
                 if location_is_absolute:
                     old_location = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute
                     if old_location is not True:
+                        #if old_location is None or old_location in self._relative_frame_depth_search(self, self._settings['CurrentFrame'], 'Loc', _debug=_debug + 1):
                         self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['LocationAbsolute'] = old_location
                     
                     self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute = True
@@ -949,6 +952,7 @@ class UserInterface(object):
                         old_visibility = None
                     self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].visibility_absolute = old_visibility
         
+        self._relative_frame_change_dropdown()
         self._frame_data_disable(_redraw=False, _debug=_debug + 1)
         self._relative_frame_redraw(_debug=_debug + 1)
     
@@ -982,7 +986,8 @@ class UserInterface(object):
             if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
                 
                 #Rebuild menu
-                for frame in sorted(self._relative_frame_depth_search(self._settings['CurrentFrame'], i)):
+                valid_frames = self._relative_frame_depth_search(self._settings['CurrentFrame'], i)
+                for frame in sorted(valid_frames):
                     pm.menuItem(label=self._frame_dropdown_format(frame), parent=self.inputs[pm.radioButton]['{}List'.format(name_start)])
                         
                 if stuff[i][0] is True:
@@ -990,14 +995,16 @@ class UserInterface(object):
                     old_value = None
                     if stuff[i][1] in temp_data:
                         old_value = temp_data[stuff[i][1]]
-                    if old_value is None:
+                    if old_value is None or old_value not in valid_frames:
                         old_value = stuff[i][2]
                     else:
                         old_value = self._frame_dropdown_format(old_value)
+                    
+                    #Stop clashing with relative frame search
                     pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, enable=False, value=old_value)
                     
                 else:
-                    if stuff[i][0] is None:
+                    if stuff[i][0] is None or stuff[i][0] not in valid_frames:
                         pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, value=stuff[i][2])
                     else:
                         pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, value=self._frame_dropdown_format(stuff[i][0]))
@@ -1020,7 +1027,11 @@ class UserInterface(object):
             sequence = []
             next_frame = frame
             
+            count_temp = 0
             while True:
+                count_temp += 1
+                if count_temp > 10000:
+                    raise TypeError('infinite loop in frame search :(')
                 
                 if i == 'Loc':
                     next_frame = self.data[self._settings['GroupName']]['Frames'][next_frame].location_absolute
@@ -1031,7 +1042,7 @@ class UserInterface(object):
                 elif i == 'Vis':
                     next_frame = self.data[self._settings['GroupName']]['Frames'][next_frame].visibility_absolute
                 
-                if next_frame is not None and next_frame is not True:
+                if next_frame is not None and next_frame is not True and next_frame not in sequence:
                     sequence.append(next_frame)
                 else:
                     break
@@ -1261,7 +1272,7 @@ class UserInterface(object):
             
             if old_loc is not None:
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_coordinates = tuple(results['Loc'])
-                self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['Location'] = tuple(results['Loc'])
+                #self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['Location'] = tuple(results['Loc'])
             if old_rot is not None:
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_coordinates = tuple(results['Rot'])
             if old_scale is not None:
