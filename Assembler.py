@@ -15,6 +15,7 @@ to do:
     disable distance per frame if no axis
     hitting remove empty groups should not select if none selected
     search for objects
+    make current selection (on object selection)
     callbacks:
         SelectionChanged - update last frame coordinates
         NameChanged - update any selections
@@ -48,7 +49,6 @@ class StoreData:
     TYPES = [bool, int, str, dict, list, tuple, float, unicode, tuple, complex, type(None), set, _dd, 'other']
     _TYPES = {long: int} #Treat the key type as the value type
     TYPE_LEN = int(math.ceil(math.log(len(TYPES), 2)))
-    LOC = 'C:/Users/Peter/AppData/Roaming/IndexDataTest'
     #need to fix float('inf') and defaultdict
     
     def save(self, x):
@@ -343,20 +343,6 @@ class StoreData:
         
         return data, end_offset
 
-    def _savefile(self, x):
-        data = self._encode_value(x)
-        remainder = len(data) % 8
-        if remainder:
-            data += '0' * (8 - remainder)
-            
-        with open(self.LOC, 'w') as f:
-            f.write(data)
-    
-    def _readfile(self):
-        with open(self.LOC, 'r') as f:
-            data, offset = self._decode_file(f)
-        return data
-
 
 class _MovementInfo(object):
     def __init__(self, location_data=None, location_absolute=None, rotation_data=None, rotation_absolute=None, scale_data=None, scale_absolute=None, visibility_data=None, visibility_absolute=None):
@@ -508,6 +494,7 @@ class UserInterface(object):
     def display(self, _debug=0):
         self._debug_print(sys._getframe().f_code.co_name, 'Draw user interface', indent=_debug)
         
+        self._reset_settings(_debug=_debug + 1)
         self.reload(_debug=_debug + 1)
         
         if pm.window(self.name, exists=True):
@@ -2069,14 +2056,14 @@ class UserInterface(object):
                 create_animation(object, data['Frames'], frame_start, data['BounceDistance'])
     
     def _debug_print(self, func_name, description, indent=0):
-        if not DEBUG_UI:
+        try:
+            if not DEBUG_UI:
+                return
+        except NameError:
             return
         now = datetime.datetime.now()
-        try:
-            test = self.data['test']['Frames'][0.0].location_absolute, self.data['test']['Frames'].keys()
-        except AttributeError:
-            test = ''
-        print '[{t} {h:02}:{m:02}:{s:02}:{n:03}]{i} {d} ({c}.{f})'.format(i='  ' * indent, h=now.hour, m=now.minute, s=now.second, n=now.microsecond // 1000, d=description, c='self', c2=self.__class__.__name__, f=func_name, t=test)
+        test = ''
+        print '[{h:02}:{m:02}:{s:02}:{n:03}]{i} {d} ({c}.{f})'.format(i='  ' * indent, h=now.hour, m=now.minute, s=now.second, n=now.microsecond // 1000, d=description, c='self', c2=self.__class__.__name__, f=func_name, t=test)
 
 def create_animation(object, keyframes, offset, bounce):
     frame_order = sorted(keyframes.keys())
@@ -2257,13 +2244,4 @@ def create_animation(object, keyframes, offset, bounce):
         pm.setAttr('{}.v'.format(maya_object.getShape()), True)
     
 DEBUG_UI = False
-'''
-pm.fileInfo['AssemblyScript'] = StoreData().save({})
-a = SetGroup('test')
-a.selection=['pCube1', 'pCone1']
-a.save()
-for i in range(2):
-    a = SetGroup('test'+str(i))
-    a.save()
-    '''
 UserInterface().display()
