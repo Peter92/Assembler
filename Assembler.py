@@ -2188,65 +2188,69 @@ def create_animation(object, keyframes, offset, bounce):
     frame_order = sorted(keyframes.keys())
     start_frame = frame_order[0]
     end_frame = frame_order[-1]
+    max_frame = max(keyframes.keys()) + offset
     maya_object = pm.ls(object)[0]
-    object_location = maya_object.getTranslation()
-    object_rotation = maya_object.getRotation()
-    object_scale = maya_object.getScale()
-    object_visibility = pm.getAttr('{}.v'.format(object))
+    object_location = pm.getAttr(object + '.translate', time=max_frame)
+    object_rotation = pm.getAttr(object + '.rotate', time=max_frame)
+    object_scale = pm.getAttr(object + '.scale', time=max_frame)
+    object_visibility = pm.getAttr('{}.v'.format(object), time=max_frame)
     
     #Get correct order
-    frame_order_location = []
-    frame_order_rotation = []
-    frame_order_scale = []
-    frame_order_visibility = []
+    sorted_frames = sorted(keyframes.keys())
+    highest_frame = max(keyframes.keys())
+    frame_order_location = [highest_frame]
+    frame_order_rotation = [highest_frame]
+    frame_order_scale = [highest_frame]
+    frame_order_visibility = [highest_frame]
     
-    object_frames = set(keyframes.keys())
+    object_frames = set(sorted_frames[:-1])
     while object_frames:
         valid_frames = set()
         invalid_frames = set()
         for f in object_frames:
             v = keyframes[f]
-            if v.location_absolute is None or v.location_absolute is True or v.location_absolute not in object_frames:
+            if v.location_absolute is None or v.location_absolute is True or v.location_absolute is False or v.location_absolute not in object_frames:
                 valid_frames.add(f)
         frame_order_location += sorted(valid_frames)
         object_frames -= valid_frames
         
-    object_frames = set(keyframes.keys())
+    object_frames = set(sorted_frames[:-1])
     while object_frames:
         valid_frames = set()
         invalid_frames = set()
         for f in object_frames:
             v = keyframes[f]
-            if v.rotation_absolute is None or v.rotation_absolute is True or v.rotation_absolute not in object_frames:
+            if v.rotation_absolute is None or v.rotation_absolute is True or v.rotation_absolute is False or v.rotation_absolute not in object_frames:
                 valid_frames.add(f)
         frame_order_rotation += sorted(valid_frames)
         object_frames -= valid_frames
         
-    object_frames = set(keyframes.keys())
+    object_frames = set(sorted_frames[:-1])
     while object_frames:
         valid_frames = set()
         invalid_frames = set()
         for f in object_frames:
             v = keyframes[f]
-            if v.scale_absolute is None or v.scale_absolute is True or v.scale_absolute not in object_frames:
+            if v.scale_absolute is None or v.scale_absolute is True or v.scale_absolute is False or v.scale_absolute not in object_frames:
                 valid_frames.add(f)
         frame_order_scale += sorted(valid_frames)
         object_frames -= valid_frames
         
-    object_frames = set(keyframes.keys())
+    object_frames = set(sorted_frames[:-1])
     while object_frames:
         valid_frames = set()
         invalid_frames = set()
         for f in object_frames:
             v = keyframes[f]
-            if v.visibility_absolute is None or v.visibility_absolute is True or v.visibility_absolute not in object_frames:
+            if v.visibility_absolute is None or v.visibility_absolute is True or v.visibility_absolute is False or v.visibility_absolute not in object_frames:
                 valid_frames.add(f)
         frame_order_visibility += sorted(valid_frames)
         object_frames -= valid_frames
         
     #Key location values
-    if len([frame for frame in frame_order if keyframes[frame].location_data is not None or frame == end_frame]) > 1:
-        for frame in frame_order:
+    if len([frame for frame in frame_order_location if keyframes[frame].location_data is not None or frame == end_frame]) > 1:
+        print frame_order_location
+        for frame in frame_order_location:
             data = keyframes[frame]
             if data.location_data is not None or frame == end_frame:
                 if frame == end_frame:
@@ -2266,6 +2270,8 @@ def create_animation(object, keyframes, offset, bounce):
                         except TypeError:
                             location1.append(i)
                     if data.location_absolute is None:
+                        location2 = pm.getAttr(object + '.translate', time=frame + offset)
+                    elif data.location_absolute is False:
                         location2 = object_location
                     else:
                         location2 = pm.getAttr(object + '.translate', time=data.location_absolute + offset)
@@ -2296,9 +2302,11 @@ def create_animation(object, keyframes, offset, bounce):
                         except TypeError:
                             rotation1.append(i)
                     if data.rotation_absolute is None:
+                        rotation2 = pm.getAttr(object + '.rotate', time=frame + offset)
+                    elif data.rotation_absolute is False:
                         rotation2 = object_rotation
                     else:
-                        rotation2 = pm.getAttr(object + '.translate', time=data.rotation_absolute + offset)
+                        rotation2 = pm.getAttr(object + '.rotate', time=data.rotation_absolute + offset)
                     new_rotation = tuple(i + j for i, j in zip(rotation1, rotation2))
                 pm.setKeyframe(object, attribute='rx', value=new_rotation[0], time=frame + offset)
                 pm.setKeyframe(object, attribute='ry', value=new_rotation[1], time=frame + offset)
@@ -2326,6 +2334,8 @@ def create_animation(object, keyframes, offset, bounce):
                         except TypeError:
                             scale1.append(i)
                     if data.scale_absolute is None:
+                        scale2 = pm.getAttr(object + '.scale', time=frame + offset)
+                    elif data.scale_absolute is False:
                         scale2 = object_scale
                     else:
                         scale2 = pm.getAttr(object + '.translate', time=data.scale_absolute + offset)
@@ -2352,9 +2362,11 @@ def create_animation(object, keyframes, offset, bounce):
                     except TypeError:
                         visibility1 = data.visibility_data
                     if data.visibility_absolute is None:
+                        visibility2 = pm.getAttr(object + '.v', time=frame + offset)
+                    elif data.visibility_absolute is False:
                         visibility2 = object_visibility
                     else:
-                        visibility2 = pm.getAttr(object + '.translate', time=data.visibility_absolute + offset)
+                        visibility2 = pm.getAttr(object + '.v', time=data.visibility_absolute + offset)
                     new_visibility = visibility1 + visibility2
                 new_visibility = min(1, max(0, new_visibility))
                 pm.setKeyframe(object, attribute='v', value=new_visibility, time=frame + offset)
