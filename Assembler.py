@@ -12,7 +12,6 @@ import random
 to do:
     remove animation option
     stop things saving if closing window
-    search for objects
     make current selection (on object selection)
     callbacks:
         SelectionChanged - update last frame coordinates
@@ -232,7 +231,9 @@ class StoreData:
             for i in range(2):
                 value, end_offset = self._decode_value(x, start=end_offset)
                 data.append(str(value))
-            data = float('.'.join(data)) * (-1 if is_negative else 1)
+            data = float('.'.join(data))
+            if data > 0:
+                data * (-1 if is_negative else 1)
         
         elif item_type == complex:
             data = []
@@ -831,6 +832,7 @@ class UserInterface(object):
    
    
     def save(self, original=False, _debug=0):
+        
         self._debug_print(sys._getframe().f_code.co_name, 'Save into scene', indent=_debug)
         if original:
             pm.fileInfo['AssemblyScript'] = StoreData().save(self._original_data)
@@ -2122,33 +2124,13 @@ class UserInterface(object):
         self._save_all()
         for group in self.data:
             self.generate_current(group)
-        '''
-        for group, data in self.data.iteritems():
-            origin = data['ObjectOrigin']
-            axis = data['Axis']
-            use_axis = any(axis)
-            frames_per_distance = data['FrameDistance']
-            if not data['ObjectSelection']:
-                continue
-            for object in data['ObjectSelection']:
-                frame_start = data['FrameOffset']
-                if data['RandomOffset']:
-                    frame_start += random.uniform(-data['RandomOffset'], data['RandomOffset'])
-                
-                #Add distance offset
-                if use_axis and frames_per_distance:
-                    object_location = pm.ls(object)[0].getTranslation()
-                    distance_from_origin = pow(sum(pow(object_location[i] - origin[i], 2) for i in xrange(3) if axis[i]), 0.5)
-                    frame_start += distance_from_origin / frames_per_distance
-                    
-                create_animation(object, data['Frames'], frame_start, data['BounceDistance'])
-                '''
     
     def generate_current(self, group_name=None):
         if group_name is None:
+            self._save_all()
             group_name = self._settings['GroupName']
         if group_name is not None:
-            data = self.data[self._settings['GroupName']]
+            data = self.data[group_name]
             
             origin = data['ObjectOrigin']
             axis = data['Axis']
@@ -2156,6 +2138,7 @@ class UserInterface(object):
             frames_per_distance = data['FrameDistance']
             if not data['ObjectSelection']:
                 return
+                
             for object in data['ObjectSelection']:
                 frame_start = data['FrameOffset']
                 if data['RandomOffset']:
@@ -2178,6 +2161,7 @@ class UserInterface(object):
         try:
             if self._settings['GroupName'] in self.data:
                 #print self.data[self._settings['GroupName']]['ObjectSelection']
+                print self.data[self._settings['GroupName']]['ObjectOrigin']
                 pass
         except AttributeError:
             pass
@@ -2249,7 +2233,6 @@ def create_animation(object, keyframes, offset, bounce):
         
     #Key location values
     if len([frame for frame in frame_order_location if keyframes[frame].location_data is not None or frame == end_frame]) > 1:
-        print frame_order_location
         for frame in frame_order_location:
             data = keyframes[frame]
             if data.location_data is not None or frame == end_frame:
@@ -2374,5 +2357,5 @@ def create_animation(object, keyframes, offset, bounce):
         pm.cutKey(maya_object.getShape(), attribute='v', clear=True)
         pm.setAttr('{}.v'.format(maya_object.getShape()), True)
     
-DEBUG_UI = True
+DEBUG_UI = False
 UserInterface().display()
