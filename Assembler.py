@@ -10,10 +10,8 @@ import datetime
 import random
 '''
 to do:
+    remove animation option
     stop things saving if closing window
-    calculate distance per frame stuff
-    disable distance per frame if no axis
-    hitting remove empty groups should not select if none selected
     search for objects
     make current selection (on object selection)
     callbacks:
@@ -463,8 +461,7 @@ class UserInterface(object):
             existing_scriptjobs = self._settings['ScriptJobs']
         except AttributeError:
             existing_scriptjobs = []
-        self._settings = {'GroupObjects': set(),
-                          'GroupName': None,
+        self._settings = {'GroupName': None,
                           'HideSelected': True,
                           'CurrentFrame': None,
                           'LastFrameSelection': {},
@@ -513,7 +510,7 @@ class UserInterface(object):
                             with pm.rowColumnLayout(numberOfColumns=3):
                                 pm.text(label='Group Selection', align='left')
                                 pm.text(label='')
-                                self.inputs[pm.textScrollList]['Groups'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100, selectCommand=pm.Callback(self._group_select_new))
+                                self.inputs[pm.textScrollList]['Groups'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100, width=400, selectCommand=pm.Callback(self._group_select_new))
                                 
                                 pm.text(label='')
                                 pm.text(label='')
@@ -527,20 +524,39 @@ class UserInterface(object):
                                     self.inputs[pm.button]['GroupMoveDown'] = pm.button(label='v', command=pm.Callback(self._group_down))
                                     pm.text(label='')
                                     self.inputs[pm.button]['GroupClean'] = pm.button(label='Remove empty groups', command=pm.Callback(self._group_clean))
-                                              
+                                         
+                                pm.text(label='')
+                                pm.text(label='')
+                                pm.text(label='')
                                 pm.text(label='Object Selection')
                                 pm.text(label='')
-                                self.inputs[pm.textScrollList]['AllObjects'] = pm.textScrollList(allowMultiSelection=True, append=['error'], height=200, selectCommand=pm.Callback(self._objects_select))
+                                self.inputs[pm.textScrollList]['AllObjects'] = pm.textScrollList(allowMultiSelection=True, append=['error'], height=300, selectCommand=pm.Callback(self._objects_select))
                                
+                                pm.text(label='Narrow Results')
+                                pm.text(label='')
+                                with pm.rowColumnLayout(numberOfColumns=5):
+                                    self.inputs[pm.textField]['RefineSelection'] = pm.textField(text='', changeCommand=pm.Callback(self._objects_refresh))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['RefineSensitive'] = pm.checkBox(label='Case Sensitive', value=False)
+                                    pm.text(label='')
+                                    pm.button(label='Clear', command=pm.Callback(self._narrow_clear))
+                                
                                 pm.text(label='')      
-                                pm.text(label='')      
+                                pm.text(label='')
+                                '''
                                 with pm.rowColumnLayout(numberOfColumns=3):
                                     self.inputs[pm.button]['ObjectRefresh'] = pm.button(label='Refresh', command=pm.Callback(self._objects_refresh))
                                     pm.text(label='')
                                     self.inputs[pm.checkBox]['ObjectHide'] = pm.checkBox(label='Hide selected objects', value=self._settings['HideSelected'], changeCommand=pm.Callback(self._objects_hide))
-                    
+                                '''
+                                self.inputs[pm.checkBox]['ObjectHide'] = pm.checkBox(label='Hide already selected objects', value=self._settings['HideSelected'], changeCommand=pm.Callback(self._objects_hide))
+
+                                
                         pm.text(label='')
-                            
+                        
+                        row2_width = 350
+                        row2_button_padding = 30
+                        
                         with pm.rowColumnLayout(numberOfColumns=1):
                             with pm.rowColumnLayout(numberOfColumns=3):
                                 pm.text(label='Group Name', align='right')
@@ -558,6 +574,15 @@ class UserInterface(object):
                                 pm.text(label='')
                                 pm.text(label='')
                                 pm.text(label='')
+                                
+                                pm.text(label='Animation Axis', align='right')
+                                pm.text(label='')
+                                with pm.rowColumnLayout(numberOfColumns=5):
+                                    self.inputs[pm.checkBox]['OriginX'] = pm.checkBox(label='X', value=False, changeCommand=pm.Callback(self._group_settings_save))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['OriginY'] = pm.checkBox(label='Y', value=False, changeCommand=pm.Callback(self._group_settings_save))
+                                    pm.text(label='')
+                                    self.inputs[pm.checkBox]['OriginZ'] = pm.checkBox(label='Z', value=False, changeCommand=pm.Callback(self._group_settings_save))
                                 pm.text(label='Distance Per Frame', align='right')
                                 pm.text(label='')
                                 self.inputs[pm.floatSliderGrp]['DistanceUnits'] = pm.floatSliderGrp(field=True, value=100, fieldMinValue=0, fieldMaxValue=float('inf'), maxValue=1000, precision=2, changeCommand=pm.Callback(self._group_settings_save))
@@ -570,22 +595,13 @@ class UserInterface(object):
                                 pm.text(label='')
                                 pm.text(label='')
                                 self.inputs[pm.button]['OriginApply'] = pm.button(label='Use Current Selection', command=pm.Callback(self._set_origin_location))
-                                
-                                pm.text(label='Animation Axis', align='right')
-                                pm.text(label='')
-                                with pm.rowColumnLayout(numberOfColumns=5):
-                                    self.inputs[pm.checkBox]['OriginX'] = pm.checkBox(label='X', value=False, changeCommand=pm.Callback(self._group_settings_save))
-                                    pm.text(label='')
-                                    self.inputs[pm.checkBox]['OriginY'] = pm.checkBox(label='Y', value=False, changeCommand=pm.Callback(self._group_settings_save))
-                                    pm.text(label='')
-                                    self.inputs[pm.checkBox]['OriginZ'] = pm.checkBox(label='Z', value=False, changeCommand=pm.Callback(self._group_settings_save))
                                 pm.text(label='')
                                 pm.text(label='')
                                 pm.text(label='')
                                 pm.text(label='Frame Selection', align='right')
                                 
                                 pm.text(label='')
-                                self.inputs[pm.textScrollList]['FrameSelection'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100, selectCommand=pm.Callback(self._frame_select_new))
+                                self.inputs[pm.textScrollList]['FrameSelection'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=138, width=350, selectCommand=pm.Callback(self._frame_select_new))
                                 pm.text(label='')
                                 pm.text(label='')
                                 with pm.rowColumnLayout(numberOfColumns=3):
@@ -593,8 +609,15 @@ class UserInterface(object):
                                     pm.text(label='')
                                     self.inputs[pm.button]['FrameRemove'] = pm.button(label='-', command=pm.Callback(self._frame_remove))
 
-
-                    
+                            pm.text(label='')
+                            with pm.rowColumnLayout(numberOfColumns=2):
+                                pm.text(label='', width=20)
+                                self.inputs[pm.button]['UIRefresh'] = pm.button(label='Reload', width=410, command=pm.Callback(self._refresh_ui))
+                            pm.text(label='')
+                            with pm.rowColumnLayout(numberOfColumns=2):
+                                pm.text(label='', width=20)
+                                self.inputs[pm.button]['ObjectSave'] = pm.button(label='Save All', width=410, command=pm.Callback(self._save_all))
+                            
                     with pm.rowColumnLayout(numberOfColumns=5):
                         button_width = 100
                         button_padding = 10
@@ -603,13 +626,17 @@ class UserInterface(object):
                         pm.text(label=' ' * button_padding)
                         pm.text(label=' ' * button_width)
                         pm.text(label=' ' * button_padding)
+                        '''
                         pm.text(label='')
                         self.inputs[pm.button]['UIRefresh'] = pm.button(label='Reload', command=pm.Callback(self._refresh_ui))
                         pm.text(label='')
                         self.inputs[pm.button]['ObjectSave'] = pm.button(label='Save All', command=pm.Callback(self._save_all))
                         pm.text(label='')
+                        '''
+                        #pm.text(label='')
+                        #pm.button(label='Print Info', command=pm.Callback(self._print_stuff))
                         pm.text(label='')
-                        pm.button(label='Print Info', command=pm.Callback(self._print_stuff))
+                        pm.button(label='Save and generate animation (current group)', command=pm.Callback(self.generate_current))
                         pm.text(label='')
                         pm.button(label='Save and generate animation (all groups)', command=pm.Callback(self.generate_all))
 
@@ -789,7 +816,7 @@ class UserInterface(object):
                                     pm.text(label='')
                                     pm.text(label='')
                                     '''
-
+                                    
         self._objects_select(_debug=_debug + 1)
         self._group_select_new(_debug=_debug + 1)
         self._frame_select_new(_debug=_debug + 1)
@@ -844,6 +871,11 @@ class UserInterface(object):
                 print '{s}Selected Objects:'.format(s=spacing)
                 for i in sorted(data['ObjectSelection']):
                     print '{s}{s}{}'.format(i, s=spacing)
+    
+    def _narrow_clear(self, _debug=0):
+        self._debug_print(sys._getframe().f_code.co_name, 'Selection: Reset narrow results', indent=_debug)
+        pm.textField(self.inputs[pm.textField]['RefineSelection'], edit=True, text='')
+        self._objects_refresh(_debug = _debug + 1)
     
     def _relative_frame_change_dropdown(self, _debug=0):
         self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Dropdown change', indent=_debug)
@@ -1592,6 +1624,14 @@ class UserInterface(object):
         self._debug_print(sys._getframe().f_code.co_name, 'Group: Update', indent=_debug)
         
         if self._settings['GroupName'] is not None:
+            
+            #Read checkboxes
+            self.data[self._settings['GroupName']]['Axis'] = (pm.checkBox(self.inputs[pm.checkBox]['OriginX'], query=True, value=True),
+                                                              pm.checkBox(self.inputs[pm.checkBox]['OriginY'], query=True, value=True),
+                                                              pm.checkBox(self.inputs[pm.checkBox]['OriginZ'], query=True, value=True))
+            enable_others = any(self.data[self._settings['GroupName']]['Axis'])
+                
+                                                              
             self.data[self._settings['GroupName']]['FrameOffset'] = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['FrameOffset'], query=True, value=True)
             self.data[self._settings['GroupName']]['RandomOffset'] = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['RandomOffset'], query=True, value=True)
             self.data[self._settings['GroupName']]['BounceDistance'] = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['BounceDistance'], query=True, value=True)
@@ -1610,15 +1650,11 @@ class UserInterface(object):
             except ValueError:
                 origin_z = self.data[self._settings['GroupName']]['ObjectOrigin'][2]
             self.data[self._settings['GroupName']]['ObjectOrigin'] = (origin_x, origin_y, origin_z)
-            pm.textField(self.inputs[pm.textField]['OriginX'], edit=True, text=origin_x)
-            pm.textField(self.inputs[pm.textField]['OriginY'], edit=True, text=origin_y)
-            pm.textField(self.inputs[pm.textField]['OriginZ'], edit=True, text=origin_z)
-            
-            
-            self.data[self._settings['GroupName']]['Axis'] = (pm.checkBox(self.inputs[pm.checkBox]['OriginX'], query=True, value=True),
-                                                              pm.checkBox(self.inputs[pm.checkBox]['OriginY'], query=True, value=True),
-                                                              pm.checkBox(self.inputs[pm.checkBox]['OriginZ'], query=True, value=True))
-            
+            pm.textField(self.inputs[pm.textField]['OriginX'], edit=True, text=origin_x, enable=enable_others)
+            pm.textField(self.inputs[pm.textField]['OriginY'], edit=True, text=origin_y, enable=enable_others)
+            pm.textField(self.inputs[pm.textField]['OriginZ'], edit=True, text=origin_z, enable=enable_others)
+            pm.button(self.inputs[pm.button]['OriginApply'], edit=True, enable=enable_others)
+            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], edit=True, enable=enable_others)
 
             self._redraw_groups(_debug=_debug + 1)
     
@@ -1666,7 +1702,7 @@ class UserInterface(object):
         except IndexError:
             self._settings['GroupName'] = None
             pm.textField(self.inputs[pm.textField]['GroupName'], edit=True, text='no selection', enable=False)
-            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], edit=True, value=0, enable=False)
+            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], edit=True, value=100, enable=False)
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['FrameOffset'], edit=True, value=0, enable=False)
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['RandomOffset'], edit=True, value=0, enable=False)
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['BounceDistance'], edit=True, value=0, enable=False)
@@ -1748,6 +1784,7 @@ class UserInterface(object):
         self._redraw_selection(_debug=_debug + 1)
         self._frame_select_new(False, _debug=_debug + 1)
         self._objects_select(_redraw=False, _debug=_debug + 1)
+        self._group_settings_save(_debug=_debug + 1)
     
     def _set_origin_location(self, _debug=0):
         '''Set location of origin to the current selection, and average multiple objects if needed.'''
@@ -1806,7 +1843,7 @@ class UserInterface(object):
                 self._group_delete(_debug=_debug + 1)
         
         #Reselect a group
-        if original_group in self.data:
+        if original_group in self.data or original_group is None:
             self._settings['GroupName'] = original_group
         else:
             try:
@@ -1897,8 +1934,10 @@ class UserInterface(object):
         #Set button visibility if things have changed
         else:
             pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], edit=True, enable=True)
-            self._settings['GroupObjects'] = set(map(str, pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], query=True, selectItem=True)))
-            self.data[self._settings['GroupName']]['ObjectSelection'] = self._settings['GroupObjects']
+            if self.data[self._settings['GroupName']]['ObjectSelection']:
+                pass
+            if not _debug:
+                self.data[self._settings['GroupName']]['ObjectSelection'] = set(map(str, pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], query=True, selectItem=True)))
         
         self._visibility_save(_debug=_debug + 1)
         if _redraw:
@@ -1933,7 +1972,6 @@ class UserInterface(object):
         
     def _save_all(self, _debug=0):
         self._debug_print(sys._getframe().f_code.co_name, 'Save: Store all', indent=_debug)
-        #self.data[self._settings['GroupName']]['ObjectSelection'] = set(self._settings['GroupObjects'])
         self.save(_debug=_debug + 1)
         self._redraw_selection(_debug=_debug + 1)
         self._redraw_groups(_debug=_debug + 1)
@@ -1951,19 +1989,22 @@ class UserInterface(object):
         
         pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], edit=True, removeAll=True)
         object_list = set(self.scene_objects)
+        
+        #Make sure objects are in scene
         try:
             selected_objects = [i for i in self.data[self._settings['GroupName']]['ObjectSelection'] if i in self.scene_objects]
         except KeyError:
             selected_objects = []
         else:
-            self._selection_clean(self._settings['GroupName'])
+            self._selection_clean(self._settings['GroupName'], _debug=_debug + 1)
+            
+            #Hide objects if selected by another group, and not the current group
             if self._settings['HideSelected']:
                 for k, v in self.data.iteritems():
                     if k != self._settings['GroupName']:
                         object_list.difference_update(v['ObjectSelection'])
             object_list.update(selected_objects)
         object_list = sorted(object_list)
-        pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], edit=True, append=object_list, selectItem=selected_objects)
     
         #Register callbacks to redraw the selection if an object gets deleted
         for i in self.scene_objects:
@@ -1972,6 +2013,18 @@ class UserInterface(object):
             except pm.MayaAttributeError:
                 pm.addAttr(i, shortName='aem', longName='AssembleVisibilityMarker')
             pm.scriptJob(attributeDeleted=('{}.aem'.format(i), self._objects_refresh), parent=self.win, runOnce=True)
+            
+        #Narrow results with search function
+        narrow_results = pm.textField(self.inputs[pm.textField]['RefineSelection'], query=True, text=True)
+        if narrow_results:
+            if pm.checkBox(self.inputs[pm.checkBox]['RefineSensitive'], query=True, value=True):
+                object_list = [i for i in object_list if narrow_results in i]
+            else:
+                object_list = [i for i in object_list if narrow_results.lower() in i.lower()]
+                
+        
+        #Draw list
+        pm.textScrollList(self.inputs[pm.textScrollList]['AllObjects'], edit=True, append=object_list, selectItem=[i for i in selected_objects if i in object_list])
             
     
     def _redraw_groups(self, _debug=0):
@@ -2024,14 +2077,18 @@ class UserInterface(object):
         except KeyError:
             difference = True
         all_frames = self.data[k]['Frames'].keys()
-        num_frames = max(all_frames) - min(all_frames)
-        return '{a}{k} ({n}, {f} keyframe{s1}, {l} frame{s2})'.format(k=k, 
+        
+        min_frame = min(all_frames) + self.data[k]['FrameOffset']
+        max_frame = max(all_frames) + self.data[k]['FrameOffset']
+        
+        #keys: ['FrameDistance', 'RandomOffset', 'ListOrder', 'FrameOffset', 'ObjectSelection', 'ObjectOrigin', 'Frames', 'BounceDistance', 'Axis']
+        return '{a}{k} ({n}, {f} keyframe{s}, frames {f1} to {f2})'.format(k=k, 
                                                                       n='{} object{}'.format(num_items, '' if num_items == 1 else 's') if num_items else 'empty', 
-                                                                      a='*' if difference else '', 
-                                                                      l=num_frames, 
+                                                                      a='*' if difference else '',
                                                                       f=len(all_frames), 
-                                                                      s1='' if len(all_frames) == 1 else 's',
-                                                                      s2='' if num_frames == 1 else 's')
+                                                                      f1=int(min_frame) if min_frame == int(min_frame) else min_frame,
+                                                                      f2=int(max_frame) if max_frame == int(max_frame) else max_frame,
+                                                                      s='' if len(all_frames) == 1 else 's')
     
     def _selection_clean(self, group, _debug=0):
         self._debug_print(sys._getframe().f_code.co_name, "Selection: Clean group '{}'".format(group), indent=_debug)
@@ -2043,9 +2100,13 @@ class UserInterface(object):
     
     def generate_all(self):
         self._save_all()
+        for group in self.data:
+            self.generate_current(group)
+        '''
         for group, data in self.data.iteritems():
             origin = data['ObjectOrigin']
             axis = data['Axis']
+            use_axis = any(axis)
             frames_per_distance = data['FrameDistance']
             if not data['ObjectSelection']:
                 continue
@@ -2053,6 +2114,39 @@ class UserInterface(object):
                 frame_start = data['FrameOffset']
                 if data['RandomOffset']:
                     frame_start += random.uniform(-data['RandomOffset'], data['RandomOffset'])
+                
+                #Add distance offset
+                if use_axis and frames_per_distance:
+                    object_location = pm.ls(object)[0].getTranslation()
+                    distance_from_origin = pow(sum(pow(object_location[i] - origin[i], 2) for i in xrange(3) if axis[i]), 0.5)
+                    frame_start += distance_from_origin / frames_per_distance
+                    
+                create_animation(object, data['Frames'], frame_start, data['BounceDistance'])
+                '''
+    
+    def generate_current(self, group_name=None):
+        if group_name is None:
+            group_name = self._settings['GroupName']
+        if group_name is not None:
+            data = self.data[self._settings['GroupName']]
+            
+            origin = data['ObjectOrigin']
+            axis = data['Axis']
+            use_axis = any(axis)
+            frames_per_distance = data['FrameDistance']
+            if not data['ObjectSelection']:
+                return
+            for object in data['ObjectSelection']:
+                frame_start = data['FrameOffset']
+                if data['RandomOffset']:
+                    frame_start += random.uniform(-data['RandomOffset'], data['RandomOffset'])
+                
+                #Add distance offset
+                if use_axis and frames_per_distance:
+                    object_location = pm.ls(object)[0].getTranslation()
+                    distance_from_origin = pow(sum(pow(object_location[i] - origin[i], 2) for i in xrange(3) if axis[i]), 0.5)
+                    frame_start += distance_from_origin / frames_per_distance
+                    
                 create_animation(object, data['Frames'], frame_start, data['BounceDistance'])
     
     def _debug_print(self, func_name, description, indent=0):
@@ -2061,9 +2155,14 @@ class UserInterface(object):
                 return
         except NameError:
             return
+        try:
+            if self._settings['GroupName'] in self.data:
+                #print self.data[self._settings['GroupName']]['ObjectSelection']
+                pass
+        except AttributeError:
+            pass
         now = datetime.datetime.now()
-        test = ''
-        print '[{h:02}:{m:02}:{s:02}:{n:03}]{i} {d} ({c}.{f})'.format(i='  ' * indent, h=now.hour, m=now.minute, s=now.second, n=now.microsecond // 1000, d=description, c='self', c2=self.__class__.__name__, f=func_name, t=test)
+        print '[{h:02}:{m:02}:{s:02}:{n:03}]{i} {d} ({c}.{f})'.format(i='  ' * indent, h=now.hour, m=now.minute, s=now.second, n=now.microsecond // 1000, d=description, c='self', c2=self.__class__.__name__, f=func_name)
 
 def create_animation(object, keyframes, offset, bounce):
     frame_order = sorted(keyframes.keys())
@@ -2243,5 +2342,5 @@ def create_animation(object, keyframes, offset, bounce):
         pm.cutKey(maya_object.getShape(), attribute='v', clear=True)
         pm.setAttr('{}.v'.format(maya_object.getShape()), True)
     
-DEBUG_UI = False
+DEBUG_UI = True
 UserInterface().display()
