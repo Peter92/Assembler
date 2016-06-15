@@ -686,7 +686,8 @@ class UserInterface(object):
                                     self.inputs[pm.radioButton]['FrameLocAbsolute'] = pm.radioButton(label='Absolute', onCommand=pm.Callback(self._relative_frame_change_radio))
                                     with pm.rowColumnLayout(numberOfColumns=2): 
                                         self.inputs[pm.radioButton]['FrameLocRelative'] = pm.radioButton(label='Relative to', select=True, onCommand=pm.Callback(self._relative_frame_change_radio))
-                                        self.inputs[pm.radioButton]['FrameLocList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
+                                        self.inputs[pm.optionMenu]['FrameLocList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
+                                        pm.menuItem(label='Current Location')
                                         pm.menuItem(label='End Location')
                                     pm.text(label='')
                                     pm.text(label='')
@@ -732,7 +733,8 @@ class UserInterface(object):
                                     self.inputs[pm.radioButton]['FrameRotAbsolute'] = pm.radioButton(label='Absolute', onCommand=pm.Callback(self._relative_frame_change_radio))
                                     with pm.rowColumnLayout(numberOfColumns=2): 
                                         self.inputs[pm.radioButton]['FrameRotRelative'] = pm.radioButton(label='Relative to', select=True, onCommand=pm.Callback(self._relative_frame_change_radio))
-                                        self.inputs[pm.radioButton]['FrameRotList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
+                                        self.inputs[pm.optionMenu]['FrameRotList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
+                                        pm.menuItem(label='Current Rotation')
                                         pm.menuItem(label='End Rotation')
                                     pm.text(label='')
                                     pm.text(label='')
@@ -778,7 +780,8 @@ class UserInterface(object):
                                     self.inputs[pm.radioButton]['FrameScaleAbsolute'] = pm.radioButton(label='Absolute', onCommand=pm.Callback(self._relative_frame_change_radio))
                                     with pm.rowColumnLayout(numberOfColumns=2): 
                                         self.inputs[pm.radioButton]['FrameScaleRelative'] = pm.radioButton(label='Relative to', select=True, onCommand=pm.Callback(self._relative_frame_change_radio))
-                                        self.inputs[pm.radioButton]['FrameScaleList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
+                                        self.inputs[pm.optionMenu]['FrameScaleList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown))
+                                        pm.menuItem(label='Current Scale')
                                         pm.menuItem(label='End Scale')
                                     pm.text(label='')
                                     pm.text(label='')
@@ -881,22 +884,22 @@ class UserInterface(object):
         self._debug_print(sys._getframe().f_code.co_name, 'Keyframe: Dropdown change', indent=_debug)
         if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
             
-            selected_frame = self._frame_dropdown_format(pm.optionMenu(self.inputs[pm.radioButton]['FrameLocList'], query=True, value=True), undo=True)
+            selected_frame = self._frame_dropdown_format(pm.optionMenu(self.inputs[pm.optionMenu]['FrameLocList'], query=True, value=True), undo=True)
             if self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute is not True:
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute = selected_frame
             self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['LocationAbsolute'] = selected_frame
             
-            selected_frame = self._frame_dropdown_format(pm.optionMenu(self.inputs[pm.radioButton]['FrameRotList'], query=True, value=True), undo=True)
+            selected_frame = self._frame_dropdown_format(pm.optionMenu(self.inputs[pm.optionMenu]['FrameRotList'], query=True, value=True), undo=True)
             if self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_absolute is not True:
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_absolute = selected_frame
             self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['RotationAbsolute'] = selected_frame
             
-            selected_frame = self._frame_dropdown_format(pm.optionMenu(self.inputs[pm.radioButton]['FrameScaleList'], query=True, value=True), undo=True)
+            selected_frame = self._frame_dropdown_format(pm.optionMenu(self.inputs[pm.optionMenu]['FrameScaleList'], query=True, value=True), undo=True)
             if self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_absolute is not True:
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_absolute = selected_frame
             self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['ScaleAbsolute'] = selected_frame
             
-            #selected_frame = self._frame_dropdown_format(pm.optionMenu(self.inputs[pm.radioButton]['FrameVisList'], query=True, value=True), undo=True)
+            #selected_frame = self._frame_dropdown_format(pm.optionMenu(self.inputs[pm.optionMenu]['FrameVisList'], query=True, value=True), undo=True)
             #if self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].visibility_absolute is not True:
             #    self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].visibility_absolute = selected_frame
             #self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['VisibilityAbsolute'] = selected_frame
@@ -922,12 +925,12 @@ class UserInterface(object):
                     self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute = True
                     
                 else:
-                    pm.optionMenu(self.inputs[pm.radioButton]['FrameLocList'], edit=True, enable=True)
+                    pm.optionMenu(self.inputs[pm.optionMenu]['FrameLocList'], edit=True, enable=True)
                     
                     if 'LocationAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
                         old_location = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['LocationAbsolute']
                     else:
-                        old_location = None
+                        old_location = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute
                     self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].location_absolute = old_location
                 
                 rotation_is_absolute = pm.radioButton(self.inputs[pm.radioButton]['FrameRotAbsolute'], query=True, select=True)
@@ -941,11 +944,11 @@ class UserInterface(object):
                     self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_absolute = True
                     
                 else:
-                    pm.optionMenu(self.inputs[pm.radioButton]['FrameRotList'], edit=True, enable=True)
+                    pm.optionMenu(self.inputs[pm.optionMenu]['FrameRotList'], edit=True, enable=True)
                     if 'RotationAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
                         old_rotation = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['RotationAbsolute']
                     else:
-                        old_rotation = None
+                        old_rotation = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_absolute
                     self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].rotation_absolute = old_rotation
                 
                 scale_is_absolute = pm.radioButton(self.inputs[pm.radioButton]['FrameScaleAbsolute'], query=True, select=True)
@@ -959,11 +962,11 @@ class UserInterface(object):
                     self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_absolute = True
                     
                 else:
-                    pm.optionMenu(self.inputs[pm.radioButton]['FrameScaleList'], edit=True, enable=True)
+                    pm.optionMenu(self.inputs[pm.optionMenu]['FrameScaleList'], edit=True, enable=True)
                     if 'ScaleAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
                         old_scale = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['ScaleAbsolute']
                     else:
-                        old_scale = None
+                        old_scale = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_absolute
                     self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_absolute = old_scale
                 
                 #visibility_is_absolute = pm.radioButton(self.inputs[pm.radioButton]['FrameVisAbsolute'], query=True, select=True)
@@ -979,11 +982,11 @@ class UserInterface(object):
                     self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].visibility_absolute = True
                     
                 else:
-                    pm.optionMenu(self.inputs[pm.radioButton]['FrameVisList'], edit=True, enable=True)
+                    pm.optionMenu(self.inputs[pm.optionMenu]['FrameVisList'], edit=True, enable=True)
                     if 'VisibilityAbsolute' in self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]:
                         old_visibility = self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['VisibilityAbsolute']
                     else:
-                        old_visibility = None
+                        old_visibility = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].visibility_absolute
                     self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].visibility_absolute = old_visibility
         
         self._frame_data_disable(_redraw=False, _debug=_debug + 1)
@@ -1001,51 +1004,63 @@ class UserInterface(object):
             loc = stored_data.location_absolute
             rot = stored_data.rotation_absolute
             scale = stored_data.scale_absolute
-            vis = stored_data.visibility_absolute
+            #vis = stored_data.visibility_absolute
         else:
             loc = rot = scale = vis = None
             
-        stuff = {'Loc': (loc, 'LocationAbsolute', 'End Location'),
-                 'Rot': (rot, 'RotationAbsolute', 'End Rotation'),
-                 'Scale': (scale, 'ScaleAbsolute', 'End Scale')}#,
-                 #'Vis': (vis, 'VisibilityAbsolute', 'End Visibility')}
+        stuff = {'Loc': (loc, 'LocationAbsolute', 'Current Location'),
+                 'Rot': (rot, 'RotationAbsolute', 'Current Rotation'),
+                 'Scale': (scale, 'ScaleAbsolute', 'Current Scale')}#,
+                 #'Vis': (vis, 'VisibilityAbsolute', 'Current Visibility')}
         
         for i in stuff:
             
             name_start = 'Frame{}'.format(i)
-            dropdown_options = pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], query=True, itemListLong=True)
-            for j in dropdown_options[1:]:
+            dropdown_options = pm.optionMenu(self.inputs[pm.optionMenu]['{}List'.format(name_start)], query=True, itemListLong=True)
+            for j in dropdown_options:
                 pm.deleteUI(j)
+            if self._settings['CurrentFrame']:
+                pm.menuItem(label=stuff[i][2], parent=self.inputs[pm.optionMenu]['{}List'.format(name_start)])
+            pm.menuItem(label=stuff[i][2].replace('Current', 'End'), parent=self.inputs[pm.optionMenu]['{}List'.format(name_start)])
             
             if self._settings['GroupName'] is not None and self._settings['CurrentFrame'] is not None:
                 
                 #Rebuild menu
                 valid_frames = self._relative_frame_depth_search(self._settings['CurrentFrame'], i, _debug=_debug + 1)
                 for frame in sorted(valid_frames):
-                    pm.menuItem(label=self._frame_dropdown_format(frame), parent=self.inputs[pm.radioButton]['{}List'.format(name_start)])
+                    pm.menuItem(label=self._frame_dropdown_format(frame), parent=self.inputs[pm.optionMenu]['{}List'.format(name_start)])
                         
                 if stuff[i][0] is True:
                     #Get temporary value
                     old_value = None
                     if stuff[i][1] in temp_data:
                         old_value = temp_data[stuff[i][1]]
-                    if old_value is None or old_value not in valid_frames:
-                        old_value = stuff[i][2]
+                    if old_value is None or old_value is False or old_value not in valid_frames:
+                        if old_value is False or not self._settings['CurrentFrame']:
+                            old_value = stuff[i][2].replace('Current', 'End')
+                        else:
+                            old_value = stuff[i][2]
                     else:
                         old_value = self._frame_dropdown_format(old_value)
                     
                     #Stop clashing with relative frame search
-                    pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, enable=False, value=old_value)
+                    pm.optionMenu(self.inputs[pm.optionMenu]['{}List'.format(name_start)], edit=True, enable=False, value=old_value)
                     
                 else:
-                    if stuff[i][0] is None or stuff[i][0] not in valid_frames:
-                        pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, value=stuff[i][2])
+                    if stuff[i][0] is None or stuff[i][0] is False or stuff[i][0] not in valid_frames:
+                        if stuff[i][0] is False or not self._settings['CurrentFrame']:
+                            pm.optionMenu(self.inputs[pm.optionMenu]['{}List'.format(name_start)], edit=True, value=stuff[i][2].replace('Current', 'End'))
+                        else:
+                            pm.optionMenu(self.inputs[pm.optionMenu]['{}List'.format(name_start)], edit=True, value=stuff[i][2])
                     else:
-                        pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, value=self._frame_dropdown_format(stuff[i][0]))
+                        pm.optionMenu(self.inputs[pm.optionMenu]['{}List'.format(name_start)], edit=True, value=self._frame_dropdown_format(stuff[i][0]))
                 
             #Disable frame controls
             else:
-                pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, enable=False, value=stuff[i][2])
+                if not self._settings['CurrentFrame']:
+                    pm.optionMenu(self.inputs[pm.optionMenu]['{}List'.format(name_start)], edit=True, enable=False, value=stuff[i][2].replace('Current', 'End'))
+                else:
+                    pm.optionMenu(self.inputs[pm.optionMenu]['{}List'.format(name_start)], edit=True, enable=False, value=stuff[i][2])
     
     
     def _relative_frame_depth_search(self, current_frame, i, _debug=0):
@@ -1093,7 +1108,12 @@ class UserInterface(object):
             try:
                 return float(i.replace('Frame ', '').split(' - ')[0])
             except ValueError:
-                return None
+                if 'Current' in i:
+                    return None
+                elif 'End' in i:
+                    return False
+                else:
+                    raise ValueError('unknown frame format: {}'.format(i))
         else:
             if str(i)[-2:] == '.0':
                 i = int(i)
@@ -1124,7 +1144,7 @@ class UserInterface(object):
                     disable_items[i] = True
                     pm.checkBox(self.inputs[pm.checkBox]['{}Disable'.format(name_start)], edit=True, enable=False, value=True)
                     if i != 'Vis':
-                        pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, enable=False)
+                        pm.optionMenu(self.inputs[pm.optionMenu]['{}List'.format(name_start)], edit=True, enable=False)
                 
             if i == 'Vis':
                 values = ['X']
@@ -1144,7 +1164,7 @@ class UserInterface(object):
                 enable = not disable_items[i] and self._settings['CurrentFrame'] is not None
                 pm.radioButton(self.inputs[pm.radioButton]['{}Absolute'.format(name_start)], edit=True, enable=enable)
                 pm.radioButton(self.inputs[pm.radioButton]['{}Relative'.format(name_start)], edit=True, enable=enable)
-                pm.optionMenu(self.inputs[pm.radioButton]['{}List'.format(name_start)], edit=True, enable=enable or not override)
+                pm.optionMenu(self.inputs[pm.optionMenu]['{}List'.format(name_start)], edit=True, enable=enable or not override)
                 for j in ['Coordinates', 'Min', 'Max', 'Join'] + values:
                     pm.text(self.inputs[pm.text]['{}{}'.format(name_start, j)], edit=True, enable=enable)
                      
