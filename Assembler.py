@@ -12,9 +12,11 @@ import random
 Future:
     Clear Group Animation - Disable if any objects selected in another group
     Apply Current Selection - On the 'Object Selection' part
+    Axis multipliers
     Callbacks:
         pm.scriptJob(listEvents=True)
         NameChanged - update any selections
+        SelectionChanged - update 'Apply Current Selection' type buttons
         SceneOpened/NewSceneOpened - reload user interface
 
 Bugs:
@@ -502,55 +504,58 @@ class UserInterface(object):
         #pm.scriptJob(event=('SelectionChanged', self.test), parent=win)
         pm.scriptJob(event=('DagObjectCreated', self._objects_refresh), parent=self.win)
         
+        col_1_width = 400
+        
         with pm.rowColumnLayout(numberOfColumns=1):
-            with pm.rowColumnLayout(numberOfColumns=2): #Separate left and right
+            with pm.rowColumnLayout(numberOfColumns=3): #Separate left and right
                 with pm.rowColumnLayout(numberOfColumns=1): #Make so buttons can be spread out
                     with pm.rowColumnLayout(numberOfColumns=3):
                         with pm.rowColumnLayout(numberOfColumns=1):
                             
-                            with pm.rowColumnLayout(numberOfColumns=3):
-                                pm.text(label='Group Selection', align='left')
-                                pm.text(label='')
-                                self.inputs[pm.textScrollList]['Groups'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100, width=400, selectCommand=pm.Callback(self._group_select_new))
+                            
+                            with pm.rowColumnLayout(numberOfColumns=1):
                                 
-                                pm.text(label='')
-                                pm.text(label='')
-                                with pm.rowColumnLayout(numberOfColumns=9):
-                                    self.inputs[pm.button]['GroupAdd'] = pm.button(label='+', command=pm.Callback(self._group_add))
-                                    pm.text(label='')
-                                    self.inputs[pm.button]['GroupRemove'] = pm.button(label='-', command=pm.Callback(self._group_delete))
-                                    pm.text(label='')
-                                    self.inputs[pm.button]['GroupMoveUp'] = pm.button(label='^', command=pm.Callback(self._group_up))
-                                    pm.text(label='')
-                                    self.inputs[pm.button]['GroupMoveDown'] = pm.button(label='v', command=pm.Callback(self._group_down))
-                                    pm.text(label='')
-                                    self.inputs[pm.button]['GroupClean'] = pm.button(label='Remove empty groups', command=pm.Callback(self._group_clean))
+                                with pm.frameLayout(label='Group Selection', collapsable=False, collapse=False):
+                                    with pm.rowColumnLayout(numberOfColumns=1):
+                            
+                                        self.inputs[pm.textScrollList]['Groups'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=100, width=col_1_width, selectCommand=pm.Callback(self._group_select_new))
+                                        
+                                        with pm.rowColumnLayout(numberOfColumns=9):
+                                            self.inputs[pm.button]['GroupAdd'] = pm.button(label='+', command=pm.Callback(self._group_add))
+                                            pm.text(label='')
+                                            self.inputs[pm.button]['GroupRemove'] = pm.button(label='-', command=pm.Callback(self._group_delete))
+                                            pm.text(label='')
+                                            self.inputs[pm.button]['GroupMoveUp'] = pm.button(label='^', command=pm.Callback(self._group_up))
+                                            pm.text(label='')
+                                            self.inputs[pm.button]['GroupMoveDown'] = pm.button(label='v', command=pm.Callback(self._group_down))
+                                            pm.text(label='')
+                                            self.inputs[pm.button]['GroupClean'] = pm.button(label='Remove empty groups', command=pm.Callback(self._group_clean))
                                          
                                 pm.text(label='')
-                                pm.text(label='')
-                                pm.text(label='')
-                                pm.text(label='Object Selection')
-                                pm.text(label='')
-                                self.inputs[pm.textScrollList]['AllObjects'] = pm.textScrollList(allowMultiSelection=True, append=['error'], height=300, selectCommand=pm.Callback(self._objects_select))
-                               
-                                pm.text(label='Narrow Results')
-                                pm.text(label='')
-                                with pm.rowColumnLayout(numberOfColumns=7):
-                                    self.inputs[pm.textField]['RefineSelection'] = pm.textField(text='', changeCommand=pm.Callback(self._objects_refresh))
-                                    pm.text(label='')
-                                    pm.button(label='Clear', command=pm.Callback(self._narrow_clear))
-                                    pm.text(label='')
-                                    self.inputs[pm.checkBox]['RefineSensitive'] = pm.checkBox(label='Case Sensitive', value=False, changeCommand=pm.Callback(self._objects_refresh))
-                                    pm.text(label='')
-                                    #pm.button(label='Update', command=pm.Callback(self._objects_refresh))
-                                    self.inputs[pm.checkBox]['ObjectHide'] = pm.checkBox(label='Hide selected objects', value=self._settings['HideSelected'], changeCommand=pm.Callback(self._objects_hide))
-
                                 
-                                '''
-                                pm.text(label='')      
-                                pm.text(label='')
-                                self.inputs[pm.checkBox]['ObjectHide'] = pm.checkBox(label='Hide already selected objects', value=self._settings['HideSelected'], changeCommand=pm.Callback(self._objects_hide))
-                                '''
+                                with pm.frameLayout(label='Object Selection', collapsable=False, collapse=False):
+                                    with pm.rowColumnLayout(numberOfColumns=1):
+                                        self.inputs[pm.textScrollList]['AllObjects'] = pm.textScrollList(allowMultiSelection=True, append=['error'], height=200, width=col_1_width, selectCommand=pm.Callback(self._objects_select))
+                                        
+                                        with pm.rowColumnLayout(numberOfColumns=3):
+                                            self.inputs[pm.checkBox]['ObjectHide'] = pm.checkBox(label='Hide objects already selected in other groups', align='right', value=self._settings['HideSelected'], changeCommand=pm.Callback(self._objects_hide))
+
+                                            pm.text(label='')
+                                            pm.button(label='Apply Current Selection', command=pm.Callback(self._objects_apply_selection))
+
+                                        with pm.rowColumnLayout(numberOfColumns=3):
+                                            pm.text(label='Narrow Results', align='right')
+                                            pm.text(label='')
+                                            with pm.rowColumnLayout(numberOfColumns=7):
+                                                self.inputs[pm.textField]['RefineSelection'] = pm.textField(text='', width=120, changeCommand=pm.Callback(self._objects_refresh))
+                                                pm.text(label='')
+                                                pm.button(label='Apply', command=pm.Callback(self._objects_refresh))
+                                                pm.text(label='')
+                                                pm.button(label='Clear', command=pm.Callback(self._narrow_clear))
+                                                pm.text(label='')
+                                                self.inputs[pm.checkBox]['RefineSensitive'] = pm.checkBox(label='Case Sensitive', value=False, changeCommand=pm.Callback(self._objects_refresh))
+                                            
+
                                 
                         pm.text(label='')
                         
@@ -592,8 +597,8 @@ class UserInterface(object):
                                 pm.text(label='')
                                 pm.text(label='')
                                 pm.text(label='')
-                                pm.text(label='Frame Selection', align='right')
                                 
+                                pm.text(label='Frame Selection', align='right')
                                 pm.text(label='')
                                 self.inputs[pm.textScrollList]['FrameSelection'] = pm.textScrollList(allowMultiSelection=False, append=['error'], height=138, width=350, selectCommand=pm.Callback(self._frame_select_new))
                                 pm.text(label='')
@@ -602,24 +607,16 @@ class UserInterface(object):
                                     self.inputs[pm.button]['FrameAdd'] = pm.button(label='+', command=pm.Callback(self._frame_add))
                                     pm.text(label='')
                                     self.inputs[pm.button]['FrameRemove'] = pm.button(label='-', command=pm.Callback(self._frame_remove))
+                                            
                                     
                             
-                    with pm.rowColumnLayout(numberOfColumns=5):
-                        button_width = 142
-                        button_padding = 10
+                    with pm.rowColumnLayout(numberOfColumns=4):
+                        button_width = 426
+                        button_padding = 2
                         pm.text(label=' ' * button_padding)
-                        pm.text(label=' ' * button_width)
-                        pm.text(label=' ' * button_padding)
-                        pm.text(label=' ' * button_width)
-                        pm.text(label=' ' * button_padding)
-                        #pm.text(label='')
-                        #pm.button(label='Print Info', command=pm.Callback(self._print_stuff))
-                        pm.text(label='')
-                        self.inputs[pm.button]['UIRefresh'] = pm.button(label='Reload', width=410, command=pm.Callback(self._refresh_ui))
-                        pm.text(label='')
-                        self.inputs[pm.button]['ObjectSave'] = pm.button(label='Save All', width=410, command=pm.Callback(self._save_all))
-                        pm.text(label='')
-                        pm.text(label='')
+                        self.inputs[pm.button]['UIRefresh'] = pm.button(label='Reload', width=button_width, command=pm.Callback(self._refresh_ui))
+                        pm.text(label=' ' * (button_padding + 1))
+                        self.inputs[pm.button]['ObjectSave'] = pm.button(label='Save All', width=button_width, command=pm.Callback(self._save_all))
                         pm.text(label='')
                         pm.text(label='')
                         pm.text(label='')
@@ -633,14 +630,12 @@ class UserInterface(object):
                         pm.text(label='')
                         pm.text(label='')
                         pm.text(label='')
-                        pm.text(label='')
-                        pm.text(label='')
                         pm.button(label='Save and generate animation (current group)', command=pm.Callback(self.generate_current))
                         pm.text(label='')
                         pm.button(label='Save and generate animation (all groups)', command=pm.Callback(self.generate_all))
-                        pm.text(label='')
 
-                    
+                pm.text(label='')
+                
                 with pm.rowColumnLayout(numberOfColumns=1):
                     with pm.rowColumnLayout(numberOfColumns=3):
                         pm.text(label='Frame', align='right')
@@ -883,7 +878,9 @@ class UserInterface(object):
         pm.rotate(object, object_rotation, absolute=True)
         pm.scale(object, object_scale, absolute=True)
         pm.setAttr('{}.v'.format(object), object_visibility)
-        
+    
+    def _objects_apply_selection(self, _debug=0):
+        raise NotImplementedError()    
     
     def _narrow_clear(self, _debug=0):
         self._debug_print(sys._getframe().f_code.co_name, 'Selection: Reset narrow results', indent=_debug)
@@ -1738,6 +1735,7 @@ class UserInterface(object):
             pm.checkBox(self.inputs[pm.checkBox]['OriginZ'], edit=True, value=False, enable=False)
             pm.textScrollList(self.inputs[pm.textScrollList]['FrameSelection'], edit=True, enable=False, removeAll=True)
             pm.button(self.inputs[pm.button]['FrameAdd'], edit=True, enable=False)
+            pm.button(self.inputs[pm.button]['FrameRemove'], edit=True, enable=False)
             
             for i in ('Loc', 'Rot', 'Scale', 'Vis'):
                 name_start = 'Frame{}'.format(i)
@@ -1798,6 +1796,7 @@ class UserInterface(object):
             frames[-1] += ' - end (current location)'
             pm.textScrollList(self.inputs[pm.textScrollList]['FrameSelection'], edit=True, enable=True, removeAll=True, append=frames)
             pm.button(self.inputs[pm.button]['FrameAdd'], edit=True, enable=True)
+            pm.button(self.inputs[pm.button]['FrameRemove'], edit=True, enable=True)
             self._settings['CurrentFrame'] = None
         
         self._debug_print(sys._getframe().f_code.co_name, 'Group: Changed to {}'.format(self._settings['GroupName']), indent=_debug)
