@@ -21,7 +21,6 @@ Future:
 
 Bugs:
     Doesn't refresh if window is closed
-    Creating new group overwrites after window is reloaded
 '''
 
 def get_defaultdict():
@@ -541,7 +540,7 @@ class UserInterface(object):
                                             self.inputs[pm.checkBox]['ObjectHide'] = pm.checkBox(label='Hide objects already selected in other groups', align='right', value=self._settings['HideSelected'], changeCommand=pm.Callback(self._objects_hide))
 
                                             pm.text(label='')
-                                            pm.button(label='Apply Current Selection', command=pm.Callback(self._objects_apply_selection))
+                                            pm.button(label='Apply Current Selection', command=pm.Callback(self._objects_apply_selection), enable=False)
 
                                         with pm.rowColumnLayout(numberOfColumns=3):
                                             pm.text(label='Narrow Results', align='right')
@@ -582,6 +581,13 @@ class UserInterface(object):
                                     self.inputs[pm.checkBox]['OriginY'] = pm.checkBox(label='Y', value=False, changeCommand=pm.Callback(self._group_settings_save))
                                     pm.text(label='')
                                     self.inputs[pm.checkBox]['OriginZ'] = pm.checkBox(label='Z', value=False, changeCommand=pm.Callback(self._group_settings_save))
+                                pm.text(label='Axis Multipliers', align='right')
+                                pm.text(label='')
+                                with pm.rowColumnLayout(numberOfColumns=3):
+                                    self.inputs[pm.textField]['MultiplierX'] = pm.textField(text='1.0', changeCommand=pm.Callback(self._group_settings_save), enable=False)
+                                    self.inputs[pm.textField]['MultiplierY'] = pm.textField(text='1.0', changeCommand=pm.Callback(self._group_settings_save), enable=False)
+                                    self.inputs[pm.textField]['MultiplierZ'] = pm.textField(text='1.0', changeCommand=pm.Callback(self._group_settings_save), enable=False)
+                                
                                 pm.text(label='Distance Per Frame', align='right')
                                 pm.text(label='')
                                 self.inputs[pm.floatSliderGrp]['DistanceUnits'] = pm.floatSliderGrp(field=True, value=100, fieldMinValue=0, fieldMaxValue=float('inf'), maxValue=1000, precision=2, changeCommand=pm.Callback(self._group_settings_save))
@@ -783,7 +789,7 @@ class UserInterface(object):
                                     pm.text(label='')
                                     
                                     
-                    with pm.frameLayout(label='Visibility', collapsable=False, collapse=False) as self.inputs[pm.frameLayout]['Visibility']:
+                    with pm.frameLayout(label='Visibility (for 3DS Max)', collapsable=False, collapse=False) as self.inputs[pm.frameLayout]['Visibility']:
                         with pm.tabLayout(tabsVisible=False):
                             with pm.rowColumnLayout(numberOfColumns=1):
                                 self.inputs[pm.checkBox]['FrameVisDisable'] = pm.checkBox(label='Disable', value=True, changeCommand=pm.Callback(self._frame_data_disable))
@@ -1884,8 +1890,13 @@ class UserInterface(object):
             if v['ListOrder'] > current_index:
                 self.data[k]['ListOrder'] += 1
         
-        self._settings['GroupName'] = 'group {}'.format(self._group_new_count)
-        self._group_new_count += 1
+        while True:
+            group_name = 'group {}'.format(self._group_new_count)
+            self._group_new_count += 1
+            if group_name not in self.data:
+                break
+            
+        self._settings['GroupName'] = group_name
         g = SetGroup(self._settings['GroupName'], list_order=current_index + 1)
         g.save()
         self.data[self._settings['GroupName']] = load_data()[self._settings['GroupName']]
