@@ -9,14 +9,17 @@ import sys
 import datetime
 import random
 '''
-to do:
-    remove animation option
-    stop things saving if closing window
-    make current selection (on object selection)
-    callbacks:
-        SelectionChanged - update last frame coordinates
+Future:
+    Clear Group Animation - Disable if any objects selected in another group
+    Apply Current Selection - On the 'Object Selection' part
+    Callbacks:
+        pm.scriptJob(listEvents=True)
         NameChanged - update any selections
-        (new scene created) - reload user interface
+        SceneOpened/NewSceneOpened - reload user interface
+
+Bugs:
+    Doesn't refresh if window is closed
+    Creating new group overwrites after window is reloaded
 '''
 
 def get_defaultdict():
@@ -393,7 +396,7 @@ def save_data(data):
 
 class SetGroup(_MovementInfo):
     
-    def __init__(self, name=None, offset=0.0, distance=0.0, random=0.0, selection=None, origin=(0.0, 0.0, 0.0), bounce=0.0, list_order=None):
+    def __init__(self, name=None, offset=0.0, distance=0.0, random=0.0, selection=None, origin=(0.0, 0.0, 0.0), list_order=None):
         
         if name is None:
             raise TypeError('name of group must be provided')
@@ -404,8 +407,6 @@ class SetGroup(_MovementInfo):
         else:
             self.selection = selection
         self.origin = origin
-        
-        self.bounce = bounce
         
         self.offset = offset
         self.distance = distance
@@ -436,7 +437,6 @@ class SetGroup(_MovementInfo):
                                 'ObjectOrigin': self.origin,
                                 'FrameOffset': self.offset,
                                 'FrameDistance': self.distance,
-                                'BounceDistance': self.bounce,
                                 'RandomOffset': self.random,
                                 'Axis': (False, False, False),
                                 'ListOrder': self.list_order,
@@ -535,28 +535,24 @@ class UserInterface(object):
                                
                                 pm.text(label='Narrow Results')
                                 pm.text(label='')
-                                with pm.rowColumnLayout(numberOfColumns=5):
+                                with pm.rowColumnLayout(numberOfColumns=7):
                                     self.inputs[pm.textField]['RefineSelection'] = pm.textField(text='', changeCommand=pm.Callback(self._objects_refresh))
                                     pm.text(label='')
-                                    self.inputs[pm.checkBox]['RefineSensitive'] = pm.checkBox(label='Case Sensitive', value=False)
-                                    pm.text(label='')
                                     pm.button(label='Clear', command=pm.Callback(self._narrow_clear))
-                                
-                                pm.text(label='')      
-                                pm.text(label='')
-                                '''
-                                with pm.rowColumnLayout(numberOfColumns=3):
-                                    self.inputs[pm.button]['ObjectRefresh'] = pm.button(label='Refresh', command=pm.Callback(self._objects_refresh))
                                     pm.text(label='')
+                                    self.inputs[pm.checkBox]['RefineSensitive'] = pm.checkBox(label='Case Sensitive', value=False, changeCommand=pm.Callback(self._objects_refresh))
+                                    pm.text(label='')
+                                    #pm.button(label='Update', command=pm.Callback(self._objects_refresh))
                                     self.inputs[pm.checkBox]['ObjectHide'] = pm.checkBox(label='Hide selected objects', value=self._settings['HideSelected'], changeCommand=pm.Callback(self._objects_hide))
-                                '''
-                                self.inputs[pm.checkBox]['ObjectHide'] = pm.checkBox(label='Hide already selected objects', value=self._settings['HideSelected'], changeCommand=pm.Callback(self._objects_hide))
 
                                 
+                                '''
+                                pm.text(label='')      
+                                pm.text(label='')
+                                self.inputs[pm.checkBox]['ObjectHide'] = pm.checkBox(label='Hide already selected objects', value=self._settings['HideSelected'], changeCommand=pm.Callback(self._objects_hide))
+                                '''
+                                
                         pm.text(label='')
-                        
-                        row2_width = 350
-                        row2_button_padding = 30
                         
                         with pm.rowColumnLayout(numberOfColumns=1):
                             with pm.rowColumnLayout(numberOfColumns=3):
@@ -569,9 +565,6 @@ class UserInterface(object):
                                 pm.text(label='Random Offset', align='right')
                                 pm.text(label='')
                                 self.inputs[pm.floatSliderGrp]['RandomOffset'] = pm.floatSliderGrp(field=True, value=0, fieldMinValue=0, fieldMaxValue=float('inf'), precision=2, changeCommand=pm.Callback(self._group_settings_save))
-                                pm.text(label='Overshoot Distance', align='right')
-                                pm.text(label='')
-                                self.inputs[pm.floatSliderGrp]['BounceDistance'] = pm.floatSliderGrp(field=True, value=0, fieldMinValue=0, fieldMaxValue=float('inf'), precision=2, changeCommand=pm.Callback(self._group_settings_save))
                                 pm.text(label='')
                                 pm.text(label='')
                                 pm.text(label='')
@@ -609,37 +602,43 @@ class UserInterface(object):
                                     self.inputs[pm.button]['FrameAdd'] = pm.button(label='+', command=pm.Callback(self._frame_add))
                                     pm.text(label='')
                                     self.inputs[pm.button]['FrameRemove'] = pm.button(label='-', command=pm.Callback(self._frame_remove))
-
-                            pm.text(label='')
-                            with pm.rowColumnLayout(numberOfColumns=2):
-                                pm.text(label='', width=20)
-                                self.inputs[pm.button]['UIRefresh'] = pm.button(label='Reload', width=410, command=pm.Callback(self._refresh_ui))
-                            pm.text(label='')
-                            with pm.rowColumnLayout(numberOfColumns=2):
-                                pm.text(label='', width=20)
-                                self.inputs[pm.button]['ObjectSave'] = pm.button(label='Save All', width=410, command=pm.Callback(self._save_all))
+                                    
                             
                     with pm.rowColumnLayout(numberOfColumns=5):
-                        button_width = 100
+                        button_width = 142
                         button_padding = 10
                         pm.text(label=' ' * button_padding)
                         pm.text(label=' ' * button_width)
                         pm.text(label=' ' * button_padding)
                         pm.text(label=' ' * button_width)
                         pm.text(label=' ' * button_padding)
-                        '''
-                        pm.text(label='')
-                        self.inputs[pm.button]['UIRefresh'] = pm.button(label='Reload', command=pm.Callback(self._refresh_ui))
-                        pm.text(label='')
-                        self.inputs[pm.button]['ObjectSave'] = pm.button(label='Save All', command=pm.Callback(self._save_all))
-                        pm.text(label='')
-                        '''
                         #pm.text(label='')
                         #pm.button(label='Print Info', command=pm.Callback(self._print_stuff))
+                        pm.text(label='')
+                        self.inputs[pm.button]['UIRefresh'] = pm.button(label='Reload', width=410, command=pm.Callback(self._refresh_ui))
+                        pm.text(label='')
+                        self.inputs[pm.button]['ObjectSave'] = pm.button(label='Save All', width=410, command=pm.Callback(self._save_all))
+                        pm.text(label='')
+                        pm.text(label='')
+                        pm.text(label='')
+                        pm.text(label='')
+                        pm.text(label='')
+                        pm.text(label='')
+                        pm.text(label='')
+                        pm.button(label='Clear animation (current group)', command=pm.Callback(self.animation_clear_group))
+                        pm.text(label='')
+                        pm.button(label='Clear animation (all groups)', command=pm.Callback(self.animation_clear_all))
+                        pm.text(label='')
+                        pm.text(label='')
+                        pm.text(label='')
+                        pm.text(label='')
+                        pm.text(label='')
+                        pm.text(label='')
                         pm.text(label='')
                         pm.button(label='Save and generate animation (current group)', command=pm.Callback(self.generate_current))
                         pm.text(label='')
                         pm.button(label='Save and generate animation (all groups)', command=pm.Callback(self.generate_all))
+                        pm.text(label='')
 
                     
                 with pm.rowColumnLayout(numberOfColumns=1):
@@ -808,19 +807,7 @@ class UserInterface(object):
                                     self.inputs[pm.textField]['FrameVisXMax'] = pm.textField(text='error', changeCommand=pm.Callback(self._frame_data_set))
                                     pm.text(label='')
                                     self.inputs[pm.checkBox]['FrameVisXJoin'] = pm.checkBox(label='', value=True, changeCommand=pm.Callback(self._frame_data_join))
-                                '''       
-                                with pm.rowColumnLayout(numberOfColumns=5):
-                                    pm.radioCollection()
-                                    self.inputs[pm.radioButton]['FrameVisAbsolute'] = pm.radioButton(label='Absolute', onCommand=pm.Callback(self._relative_frame_change_radio), visible=False)
-                                    with pm.rowColumnLayout(numberOfColumns=2): 
-                                        self.inputs[pm.radioButton]['FrameVisRelative'] = pm.radioButton(label='Relative to', select=True, onCommand=pm.Callback(self._relative_frame_change_radio), visible=False)
-                                        self.inputs[pm.radioButton]['FrameVisList'] = pm.optionMenu(label='', changeCommand=pm.Callback(self._relative_frame_change_dropdown), visible=False)
-                                        pm.menuItem(label='End Visibility')
-                                    pm.text(label='')
-                                    pm.text(label='')
-                                    pm.text(label='')
-                                    '''
-                                    
+        
         self._objects_select(_debug=_debug + 1)
         self._group_select_new(_debug=_debug + 1)
         self._frame_select_new(_debug=_debug + 1)
@@ -856,7 +843,6 @@ class UserInterface(object):
             print '{s}Random Offset: {}'.format(data['RandomOffset'], s=spacing)
             print '{s}Object Origin: {}'.format(data['ObjectOrigin'], s=spacing)
             print '{s}Animation Axis: {}'.format(data['Axis'], s=spacing)
-            print '{s}Bounce Distance: {}'.format(data['BounceDistance'], s=spacing)
             print '{s}Keyframes:'.format(s=spacing)
             for keyframe in sorted(data['Frames'].keys()):
                 print '{s}{s}{}:'.format(keyframe, s=spacing)
@@ -876,6 +862,28 @@ class UserInterface(object):
                 print '{s}Selected Objects:'.format(s=spacing)
                 for i in sorted(data['ObjectSelection']):
                     print '{s}{s}{}'.format(i, s=spacing)
+    
+    def animation_clear_all(self):
+        for i in self.scene_objects:
+            self._animation_clear_object(i)
+    
+    def animation_clear_group(self):
+        if self._settings['GroupName'] is not None and self._settings['GroupName'] in self.data:
+            for i in self.data[self._settings['GroupName']]['ObjectSelection']:
+                self._animation_clear_object(i)
+    
+    def _animation_clear_object(self, object):
+        max_frame = 10000000
+        object_location = pm.getAttr('{}.translate'.format(object), time=max_frame)
+        object_rotation = pm.getAttr('{}.rotate'.format(object), time=max_frame)
+        object_scale = pm.getAttr('{}.scale'.format(object), time=max_frame)
+        object_visibility = pm.getAttr('{}.v'.format(object), time=max_frame)
+        pm.cutKey(object)
+        pm.move(object, object_location, absolute=True)
+        pm.rotate(object, object_rotation, absolute=True)
+        pm.scale(object, object_scale, absolute=True)
+        pm.setAttr('{}.v'.format(object), object_visibility)
+        
     
     def _narrow_clear(self, _debug=0):
         self._debug_print(sys._getframe().f_code.co_name, 'Selection: Reset narrow results', indent=_debug)
@@ -901,10 +909,6 @@ class UserInterface(object):
                 self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_absolute = selected_frame
             self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['ScaleAbsolute'] = selected_frame
             
-            #selected_frame = self._frame_dropdown_format(pm.optionMenu(self.inputs[pm.optionMenu]['FrameVisList'], query=True, value=True), undo=True)
-            #if self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].visibility_absolute is not True:
-            #    self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].visibility_absolute = selected_frame
-            #self._settings['LastFrameData'][self._settings['GroupName']][self._settings['CurrentFrame']]['VisibilityAbsolute'] = selected_frame
         self._redraw_groups(_debug=_debug + 1)
     
     def _relative_frame_change_radio(self, changed_keyframe=False, _debug=0):
@@ -971,8 +975,6 @@ class UserInterface(object):
                         old_scale = self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_absolute
                     self.data[self._settings['GroupName']]['Frames'][self._settings['CurrentFrame']].scale_absolute = old_scale
                 
-                #visibility_is_absolute = pm.radioButton(self.inputs[pm.radioButton]['FrameVisAbsolute'], query=True, select=True)
-                #visibility_is_relative = pm.radioButton(self.inputs[pm.radioButton]['FrameVisRelative'], query=True, select=True)
                 visibility_is_absolute = True
                 visibility_is_relative = False
                 
@@ -1656,7 +1658,6 @@ class UserInterface(object):
                                                               
             self.data[self._settings['GroupName']]['FrameOffset'] = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['FrameOffset'], query=True, value=True)
             self.data[self._settings['GroupName']]['RandomOffset'] = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['RandomOffset'], query=True, value=True)
-            self.data[self._settings['GroupName']]['BounceDistance'] = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['BounceDistance'], query=True, value=True)
             self.data[self._settings['GroupName']]['FrameDistance'] = pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], query=True, value=True)
             
             try:
@@ -1727,7 +1728,6 @@ class UserInterface(object):
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], edit=True, value=100, enable=False)
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['FrameOffset'], edit=True, value=0, enable=False)
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['RandomOffset'], edit=True, value=0, enable=False)
-            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['BounceDistance'], edit=True, value=0, enable=False)
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], edit=True, value=0, enable=False)
             pm.button(self.inputs[pm.button]['OriginApply'], edit=True, label='Use Current Selection', enable=False)
             pm.textField(self.inputs[pm.textField]['OriginX'], edit=True, text='no selection', enable=False)
@@ -1760,7 +1760,6 @@ class UserInterface(object):
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], edit=True, value=self.data[self._settings['GroupName']]['FrameDistance'], enable=True)
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['FrameOffset'], edit=True, value=self.data[self._settings['GroupName']]['FrameOffset'], enable=True)
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['RandomOffset'], edit=True, value=self.data[self._settings['GroupName']]['RandomOffset'], enable=True)
-            pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['BounceDistance'], edit=True, value=self.data[self._settings['GroupName']]['BounceDistance'], enable=True)
             pm.floatSliderGrp(self.inputs[pm.floatSliderGrp]['DistanceUnits'], edit=True, value=self.data[self._settings['GroupName']]['FrameDistance'], enable=True)
             pm.button(self.inputs[pm.button]['OriginApply'], edit=True, label='Use Current Selection', enable=True)
             origin = self.data[self._settings['GroupName']]['ObjectOrigin']
@@ -2042,7 +2041,8 @@ class UserInterface(object):
             if pm.checkBox(self.inputs[pm.checkBox]['RefineSensitive'], query=True, value=True):
                 object_list = [i for i in object_list if narrow_results in i]
             else:
-                object_list = [i for i in object_list if narrow_results.lower() in i.lower()]
+                narrow_results = narrow_results.lower()
+                object_list = [i for i in object_list if narrow_results in i.lower()]
                 
         
         #Draw list
@@ -2103,7 +2103,7 @@ class UserInterface(object):
         min_frame = min(all_frames) + self.data[k]['FrameOffset']
         max_frame = max(all_frames) + self.data[k]['FrameOffset']
         
-        #keys: ['FrameDistance', 'RandomOffset', 'ListOrder', 'FrameOffset', 'ObjectSelection', 'ObjectOrigin', 'Frames', 'BounceDistance', 'Axis']
+        #keys: ['FrameDistance', 'RandomOffset', 'ListOrder', 'FrameOffset', 'ObjectSelection', 'ObjectOrigin', 'Frames', 'Axis']
         return '{a}{k} ({n}, {f} keyframe{s}, frames {f1} to {f2})'.format(k=k, 
                                                                       n='{} object{}'.format(num_items, '' if num_items == 1 else 's') if num_items else 'empty', 
                                                                       a='*' if difference else '',
@@ -2150,7 +2150,7 @@ class UserInterface(object):
                     distance_from_origin = pow(sum(pow(object_location[i] - origin[i], 2) for i in xrange(3) if axis[i]), 0.5)
                     frame_start += distance_from_origin / frames_per_distance
                     
-                create_animation(object, data['Frames'], frame_start, data['BounceDistance'])
+                create_animation(object, data['Frames'], frame_start)
     
     def _debug_print(self, func_name, description, indent=0):
         try:
@@ -2168,7 +2168,7 @@ class UserInterface(object):
         now = datetime.datetime.now()
         print '[{h:02}:{m:02}:{s:02}:{n:03}]{i} {d} ({c}.{f})'.format(i='  ' * indent, h=now.hour, m=now.minute, s=now.second, n=now.microsecond // 1000, d=description, c='self', c2=self.__class__.__name__, f=func_name)
 
-def create_animation(object, keyframes, offset, bounce):
+def create_animation(object, keyframes, offset):
     frame_order = sorted(keyframes.keys())
     start_frame = frame_order[0]
     end_frame = frame_order[-1]
@@ -2323,9 +2323,9 @@ def create_animation(object, keyframes, offset, bounce):
                     else:
                         scale2 = pm.getAttr(object + '.translate', time=data.scale_absolute + offset)
                     new_scale = tuple(i * j for i, j in zip(scale1, scale2))
-                pm.setKeyframe(object, attribute='rx', value=new_scale[0], time=frame + offset)
-                pm.setKeyframe(object, attribute='ry', value=new_scale[1], time=frame + offset)
-                pm.setKeyframe(object, attribute='rz', value=new_scale[2], time=frame + offset)
+                pm.setKeyframe(object, attribute='sx', value=new_scale[0], time=frame + offset)
+                pm.setKeyframe(object, attribute='sy', value=new_scale[1], time=frame + offset)
+                pm.setKeyframe(object, attribute='sz', value=new_scale[2], time=frame + offset)
     
     #Key visibility values
     if len([frame for frame in frame_order if keyframes[frame].visibility_data is not None or frame == end_frame]) > 1:
